@@ -1,0 +1,71 @@
+@import "tailwindcss";
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-status-pending: var(--status-pending);
+  --color-status-processing: var(--status-processing);
+  --color-status-completed: var(--status-completed);
+  --color-status-failed: var(--status-failed);
+  --color-status-refunded: var(--status-refunded);
+  --color-status-payment-processing: var(--status-payment-processing);
+  --color-status-paid: var(--status-paid);
+  --color-status-payment-failed: var(--status-payment-failed);
+  --color-status-cancelled: var(--status-cancelled);
+}
+:root {
+  --background: #f8fafc;
+  --foreground: #0f172a;
+  --card: #ffffff;
+  --card-foreground: #0f172a;
+  --primary: #1d4ed8;
+  --primary-foreground: #ffffff;
+  --muted: #f1f5f9;
+  --muted-foreground: #475569;
+  --border: #cbd5e1;
+  --destructive: #b91c1c;
+  --status-pending: #854d0e;
+  --status-processing: #1d4ed8;
+  --status-completed: #166534;
+  --status-failed: #b91c1c;
+  --status-refunded: #6b21a8;
+  --status-payment-processing: #1d4ed8;
+  --status-paid: #166534;
+  --status-payment-failed: #b91c1c;
+  --status-cancelled: #475569;
+  --radius: 0.5rem;
+}
+.dark {
+  --background: #0f172a;
+  --foreground: #f8fafc;
+  --card: #1e293b;
+  --card-foreground: #f8fafc;
+  --primary: #93c5fd;
+  --primary-foreground: #0f172a;
+  --muted: #334155;
+  --muted-foreground: #cbd5e1;
+  --border: #64748b;
+  --destructive: #fca5a5;
+  --status-pending: #fde68a;
+  --status-processing: #93c5fd;
+  --status-completed: #86efac;
+  --status-failed: #fca5a5;
+  --status-refunded: #d8b4fe;
+  --status-payment-processing: #93c5fd;
+  --status-paid: #86efac;
+  --status-payment-failed: #fca5a5;
+  --status-cancelled: #cbd5e1;
+}
+body {
+  margin: 0;
+  font-family: system-ui, sans-serif;
+  background: var(--background);
+  color: var(--foreground);
+}
