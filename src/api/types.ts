@@ -38,9 +38,31 @@ export interface Order {
   createdAt: string;
   customerName: string;
 }
-export interface PaymentHistory { status: string; changedAt: string; source: 'SYSTEM' | 'MANUAL'; note?: string }
-export interface OutboxEvent { id: string; eventType: string; aggregateType: string; aggregateId: string; status: 'PENDING' | 'PUBLISHED' | 'FAILED'; attempts: number; nextRetryAt: string | null; lastError: string | null; createdAt: string; publishedAt: string | null }
-export interface PaymentSummary { currency: string; totalAmount: string; totalCount: number; byStatus: { status: string; count: number; amount: string }[]; daily: { date: string; count: number; amount: string }[] }
+export interface PaymentHistory {
+  status: string;
+  changedAt: string;
+  source: "SYSTEM" | "MANUAL";
+  note?: string;
+}
+export interface OutboxEvent {
+  id: string;
+  eventType: string;
+  aggregateType: string;
+  aggregateId: string;
+  status: "PENDING" | "PUBLISHED" | "FAILED";
+  attempts: number;
+  nextRetryAt: string | null;
+  lastError: string | null;
+  createdAt: string;
+  publishedAt: string | null;
+}
+export interface PaymentSummary {
+  currency: string;
+  totalAmount: string;
+  totalCount: number;
+  byStatus: { status: string; count: number; amount: string }[];
+  daily: { date: string; count: number; amount: string }[];
+}
 export interface Payment {
   id: string;
   orderId: string;

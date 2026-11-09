@@ -14,7 +14,9 @@ Run `npm run gen:api` against the backend's OpenAPI document. `OPENAPI_URL` over
 
 Use React Hook Form with a Zod schema and `zodResolver`; connect controls with `register`, show accessible field messages, and preserve values on server errors. `applyProblemErrors(problem, setError)` maps server field errors or supplies a root error. A 409 needs its own conflict handling.
 
-Tests start MSW from `src/test/setup.ts`; `src/test/handlers.ts` implements an empty customer page. Override handlers in a test for failure cases. The browser does not start a mock worker.
+In development `src/main.tsx` starts the browser worker before rendering. `src/mocks/seed.ts` supplies curated records, `db.ts` persists them, and handlers enforce mock business rules. Settings resets the demo data or enables simulated failures. Set `VITE_MOCK=0` before starting Vite to use the proxy and backend. The simulator advances new payments after roughly 3 and 8 seconds, stores history and events, and catches up on the next startup or request after a closed tab.
+
+Tests start MSW from `src/test/setup.ts`; mock-backed screen tests install the real demo handlers and reset their in-memory state. Override handlers in a test for failure cases. Passing against the mock does not verify the live backend.
 
 ## Styling and money
 
