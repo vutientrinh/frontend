@@ -1,16 +1,10 @@
 # Payment Project: web frontend
 
-The web app of the Payment Project, a learning project about how a **marketplace with a built-in
-e-wallet** really works: escrow, double-entry ledger, refunds, settlement. One React app serves
-three audiences:
+Install with `npm install`, start with `npm run dev`, and open the URL Vite prints. The development proxy sends `/api` to `http://localhost:8081` after stripping the prefix. Sign in with any email and a password of at least six characters. Authentication is a local demo only.
 
-| Area | Who | URL | What you can do |
-| --- | --- | --- | --- |
-| **Storefront** | shoppers | `/` | Browse, search, product pages, shops, cart, checkout, pay by wallet or VietQR, track orders |
-| **Wallet & account** | shoppers | `/wallet`, `/me` | Balance, top up, send money (OTP above the limit), statement, receipts, my QR, profile, addresses, KYC |
-| **Seller portal** | shop owners | `/seller` | Onboarding, products and variants, inventory, orders, earnings, settings |
-| **Back office / ERP** | staff | `/admin` | Customers and KYC, wallets, transfers, ledger journals, payments, orders, marketplace moderation, sellers, event monitor, audit |
-| **Bank simulator** | developers | `/bank-sim` | Plays the external bank: approve or fail top-ups and payouts |
+In development the browser starts MSW by default and stores demo records in localStorage. Settings can reset demo data and enable simulated errors. Existing local data is preserved across updates; reset it to load the latest curated seed. Use `VITE_MOCK=0` and restart Vite to send requests to the real backend instead. The mock is only enabled by default in development.
+
+Run `npm run gen:api` after TASK-002 publishes `/v3/api-docs`. Set `OPENAPI_URL` to override the default URL. The checked-in types and proposed history, summary and outbox endpoints are provisional; regenerate and reconcile the client once the backend contract is available. Tests use MSW's Node server.
 
 Everything runs on a **mock API** (MSW) by default, so you need no backend to try it.
 The mobile shopper app lives in the sibling repo [`apps`](https://github.com/vutientrinh/apps).
