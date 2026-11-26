@@ -8,6 +8,7 @@ import {
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createMemoryRouter, Outlet, RouterProvider } from "react-router-dom";
+import { http, HttpResponse } from "msw";
 import { Toaster } from "sonner";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AuthProvider } from "../features/banking/AuthContext";
@@ -411,14 +412,78 @@ describe("cards, quick pick and home (S-02, S-03, S-06, S-07)", () => {
     expect(within(deals).getAllByRole("listitem")).toHaveLength(
       home.deals.length,
     );
+    // With campaigns, the hero slot is the campaign carousel (TASK-029 A3).
+    expect(
+      await screen.findByRole("region", { name: "Featured campaigns" }),
+    ).toBeInTheDocument();
+  });
+
+  it("puts each storefront route in the shared <Page> width (TASK-028 B)", async () => {
+    mount("/");
+    await screen.findByRole("heading", { level: 1, name: "Shop" }, LOAD);
+    expect(
+      document.querySelector(".page-container.page-width-wide"),
+    ).not.toBeNull();
+    const product = getDB().products.find((p) => p.status === "LIVE")!;
+    const router = mount(`/p/${product.slug}`);
+    await screen.findByRole("heading", { level: 1, name: product.name }, LOAD);
+    expect(router.state.location.pathname).toBe(`/p/${product.slug}`);
+    expect(
+      document.querySelector(".page-container.page-width-content"),
+    ).not.toBeNull();
+  });
+
+  it("shows the parent in the breadcrumb on a sub-category page (TASK-034 §6)", async () => {
+    const categories = await api<
+      { id: string; slug: string; name: string; parentId: string | null }[]
+    >("/catalog/categories");
+    const leaf = categories.find((c) => c.parentId)!;
+    const parent = categories.find((c) => c.id === leaf.parentId)!;
+    mount(`/c/${leaf.slug}`);
+    await screen.findByRole("heading", { level: 1, name: leaf.name }, LOAD);
+    const crumbs = await screen.findByRole(
+      "navigation",
+      { name: "Breadcrumb" },
+      LOAD,
+    );
+    expect(
+      await within(crumbs).findByRole("link", { name: parent.name }, LOAD),
+    ).toHaveAttribute("href", `/c/${parent.slug}`);
+    expect(within(crumbs).getByText(leaf.name)).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+  });
+
+  it("shows the not-found scene for an unknown product or shop (TASK-028 F4 S3)", async () => {
+    mount("/p/no-such-product");
+    await screen.findByRole(
+      "heading",
+      { level: 1, name: "Product not found" },
+      LOAD,
+    );
+    expect(
+      document.querySelector('[data-illustration="error-not-found"]'),
+    ).not.toBeNull();
+    expect(
+      screen.getByRole("link", { name: "Back to the store" }),
+    ).toHaveAttribute("href", "/");
+  });
+
+  it("falls back to the top in-stock deal when there are no campaigns", async () => {
+    server.use(http.get("*/api/campaigns", () => HttpResponse.json([])));
+    const home = await api<CatalogHome>("/catalog/home");
     const inStockDeals = home.deals.filter((d) => d.inStock);
-    if (home.banners.length === 0 && inStockDeals.length) {
-      const hero = screen
-        .getByText(/Today’s top deal from/)
-        .closest("section")!;
-      const featured = within(hero).getByRole("heading", { level: 2 });
-      expect(inStockDeals.map((d) => d.name)).toContain(featured.textContent);
-    }
+    expect(inStockDeals.length).toBeGreaterThan(0);
+    mount("/");
+    const hero = (
+      await screen.findByText(/Today’s top deal from/, undefined, LOAD)
+    ).closest("section")!;
+    const featured = within(hero).getByRole("heading", { level: 2 });
+    expect(inStockDeals.map((d) => d.name)).toContain(featured.textContent);
+    expect(
+      screen.queryByRole("region", { name: "Featured campaigns" }),
+    ).not.toBeInTheDocument();
   });
 });
 

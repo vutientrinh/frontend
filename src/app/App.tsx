@@ -5,6 +5,7 @@ import {
   useEffect,
   useLayoutEffect,
   useRef,
+  useState,
   type ComponentType,
 } from "react";
 import {
@@ -27,7 +28,9 @@ import {
 import { toast, Toaster } from "sonner";
 
 import { ErrorBoundary } from "./ErrorBoundary";
-import { applyTheme, getTheme } from "./theme";
+import { Illustration } from "../components/brand/Illustration";
+import { initializeTheme } from "./theme";
+import { Page as LayoutPage } from "../components/layout/Page";
 import { AuthProvider, useAuth } from "../features/banking/AuthContext";
 import {
   storefrontPublicRoutes,
@@ -112,28 +115,36 @@ function AccessDenied() {
   const destination = hasStaffAccess ? "/admin" : "/wallet";
   const area = hasStaffAccess ? "admin workspace" : "wallet";
   return (
-    <main className="mx-auto max-w-xl space-y-4 p-8">
-      <h1 className="text-2xl font-semibold">Access denied</h1>
-      <p className="text-muted-foreground">
-        Signed in as {user?.fullName ?? user?.phone ?? "Unknown user"}.
-      </p>
-      <p>This account does not have access to this area.</p>
-      <div className="flex flex-wrap gap-3">
-        <Link
-          className="inline-flex min-h-11 items-center rounded bg-primary px-4 text-primary-foreground"
-          to={destination}
-        >
-          Go to your {area}
-        </Link>
-        <button
-          className="min-h-11 rounded border border-border px-4"
-          onClick={() =>
-            void signOut().finally(() => navigate("/login", { replace: true }))
-          }
-        >
-          Sign out
-        </button>
-      </div>
+    <main className="py-8">
+      <LayoutPage width="narrow" className="space-y-4">
+        <h1 className="text-2xl font-semibold">Access denied</h1>
+        <p className="text-muted-foreground">
+          Signed in as {user?.fullName ?? user?.phone ?? "Unknown user"}.
+        </p>
+        <p>
+          {user?.roles.includes("SHOPPER")
+            ? "This account does not have access to this area."
+            : "Sign in with a shopper account to buy."}
+        </p>
+        <div className="flex flex-wrap gap-3">
+          <Link
+            className="inline-flex min-h-11 items-center rounded bg-primary px-4 text-primary-foreground"
+            to={destination}
+          >
+            Go to your {area}
+          </Link>
+          <button
+            className="min-h-11 rounded border border-border px-4"
+            onClick={() =>
+              void signOut().finally(() =>
+                navigate("/login", { replace: true }),
+              )
+            }
+          >
+            Sign out
+          </button>
+        </div>
+      </LayoutPage>
     </main>
   );
 }
@@ -235,9 +246,16 @@ function ScrollManager() {
     };
   }, []);
 
+  const currentUrl = useRef(`${location.pathname}${location.search}`);
+
   useLayoutEffect(() => {
     positions.current.set(currentKey.current, window.scrollY);
     currentKey.current = location.key;
+    const url = `${location.pathname}${location.search}`;
+    const sameUrl = url === currentUrl.current;
+    currentUrl.current = url;
+    // A same-URL history entry (e.g. the category sheet) must not move the page.
+    if (sameUrl && navigationType !== "POP") return;
     const top =
       navigationType === "POP" ? (positions.current.get(location.key) ?? 0) : 0;
     const frame = window.requestAnimationFrame(() => {
@@ -246,7 +264,7 @@ function ScrollManager() {
       else window.scrollTo(0, top);
     });
     return () => window.cancelAnimationFrame(frame);
-  }, [location.key, navigationType]);
+  }, [location.key, location.pathname, location.search, navigationType]);
 
   return null;
 }
@@ -296,15 +314,37 @@ function GuardAny() {
   if (loading) return <p role="status">Restoring session…</p>;
   return user ? <Outlet /> : <Navigate to="/login" replace />;
 }
+function OfflineNotice() {
+  const [offline, setOffline] = useState(() => !navigator.onLine);
+  useEffect(() => {
+    const update = () => setOffline(!navigator.onLine);
+    window.addEventListener("online", update);
+    window.addEventListener("offline", update);
+    return () => {
+      window.removeEventListener("online", update);
+      window.removeEventListener("offline", update);
+    };
+  }, []);
+  if (!offline) return null;
+  return (
+    <div
+      role="status"
+      className="fixed inset-x-0 bottom-0 z-50 border-t border-border bg-background px-4 py-2 shadow-lg"
+    >
+      <div className="mx-auto flex max-w-3xl items-center gap-3">
+        <Illustration name="offline" size="sm" className="h-16 w-20 shrink-0" />
+        <p className="text-sm font-medium">
+          You are offline. Some features may be unavailable.
+        </p>
+      </div>
+    </div>
+  );
+}
 export function App() {
   useEffect(() => {
     document.documentElement.dataset.density =
       localStorage.getItem("payment-density") ?? "comfortable";
-    const media = matchMedia("(prefers-color-scheme: dark)"),
-      update = () => applyTheme(getTheme());
-    update();
-    media.addEventListener("change", update);
-    return () => media.removeEventListener("change", update);
+    return initializeTheme();
   }, []);
   return (
     <QueryClientProvider client={queryClient}>
@@ -457,6 +497,7 @@ export function App() {
             </Routes>
           </Suspense>
         </ErrorBoundary>
+        <OfflineNotice />
         <Toaster />
         {import.meta.env.DEV && <ReactQueryDevtools initialIsOpen={false} />}
       </AuthProvider>

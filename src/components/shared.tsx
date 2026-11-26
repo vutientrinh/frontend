@@ -1,26 +1,23 @@
 import { humanLabel } from "../lib/labels";
+import { getStatusPresentation, statusStyles, type StatusTone } from "./status";
+export { PageHeader } from "./layout/Page";
 import { useState, type ReactNode } from "react";
 import { cloneElement, type ReactElement } from "react";
 import {
   Check,
-  CircleAlert,
-  CircleCheck,
-  CircleDashed,
-  Clock,
   Copy,
   RotateCcw,
   CreditCard,
   Landmark,
-  Package,
-  PackageCheck,
-  Truck,
-  Ban,
   Wallet,
   type LucideIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
 import { formatMoney } from "../lib/money";
+import { Illustration } from "./brand/Illustration";
+import type { IllustrationName } from "./brand/illustrations";
+import { Link, type To } from "react-router-dom";
 import { Button } from "./ui/button";
 import {
   Dialog,
@@ -28,92 +25,6 @@ import {
   DialogDescription,
   DialogTitle,
 } from "./ui/dialog";
-export function PageHeader({
-  title,
-  description,
-  action,
-}: {
-  title: string;
-  description?: string;
-  action?: ReactNode;
-}) {
-  return (
-    <header className="mb-6 flex flex-wrap items-start justify-between gap-4">
-      <div>
-        <h1 className="text-2xl font-semibold">{title}</h1>
-        {description && (
-          <p className="mt-1 text-sm text-muted-foreground">{description}</p>
-        )}
-      </div>
-      {action}
-    </header>
-  );
-}
-export type StatusTone =
-  "success" | "warning" | "danger" | "info" | "refunded" | "neutral";
-
-export interface StatusPresentation {
-  tone: StatusTone;
-  icon: LucideIcon;
-  label: string;
-}
-
-const statusStyles: Record<StatusTone, string> = {
-  success: "text-status-completed",
-  warning: "text-status-pending",
-  danger: "text-status-failed",
-  info: "text-status-processing",
-  refunded: "text-status-refunded",
-  neutral: "text-muted-foreground",
-};
-
-const statusMap: Record<string, { tone: StatusTone; icon: LucideIcon }> = {
-  COMPLETED: { tone: "success", icon: CircleCheck },
-  LIVE: { tone: "success", icon: CircleCheck },
-  APPROVED: { tone: "success", icon: CircleCheck },
-  PAID: { tone: "success", icon: CreditCard },
-  PUBLISHED: { tone: "success", icon: CircleCheck },
-  CONFIRMED: { tone: "success", icon: CircleCheck },
-  PACKED: { tone: "success", icon: PackageCheck },
-  DELIVERED: { tone: "success", icon: PackageCheck },
-  SUCCEEDED: { tone: "success", icon: CircleCheck },
-  PENDING: { tone: "warning", icon: Clock },
-  PENDING_PAYMENT: { tone: "warning", icon: Clock },
-  CREATED: { tone: "warning", icon: Clock },
-  REQUIRES_ACTION: { tone: "warning", icon: CircleAlert },
-  RETURN_REQUESTED: { tone: "warning", icon: RotateCcw },
-  UNDER_REVIEW: { tone: "warning", icon: Clock },
-  PENDING_REVIEW: { tone: "warning", icon: Clock },
-  EXPIRED: { tone: "warning", icon: Clock },
-  FAILED: { tone: "danger", icon: CircleAlert },
-  PAYMENT_FAILED: { tone: "danger", icon: CircleAlert },
-  DELIVERY_FAILED: { tone: "danger", icon: CircleAlert },
-  DECLINED: { tone: "danger", icon: CircleAlert },
-  REJECTED: { tone: "danger", icon: CircleAlert },
-  DRAFT: { tone: "neutral", icon: CircleDashed },
-  HIDDEN: { tone: "neutral", icon: CircleDashed },
-  PROCESSING: { tone: "info", icon: Clock },
-  SHIPPED: { tone: "info", icon: Truck },
-  IN_TRANSIT: { tone: "info", icon: Truck },
-  OUT_FOR_DELIVERY: { tone: "info", icon: Truck },
-  LABEL_CREATED: { tone: "info", icon: Package },
-  REFUNDED: { tone: "refunded", icon: RotateCcw },
-  RETURNED: { tone: "neutral", icon: RotateCcw },
-  CANCELLED: { tone: "neutral", icon: Ban },
-};
-
-function getStatusPresentation(status: string): StatusPresentation {
-  const normalized = status.trim().toUpperCase();
-  const presentation =
-    statusMap[normalized] ??
-    (normalized.includes("FAIL")
-      ? { tone: "danger" as const, icon: CircleAlert }
-      : normalized.includes("PROCESS")
-        ? { tone: "info" as const, icon: Clock }
-        : { tone: "neutral" as const, icon: CircleDashed });
-  return { ...presentation, label: humanLabel(normalized) };
-}
-
 export function StatusBadge({
   status,
   tone,
@@ -201,7 +112,7 @@ export const Money = MoneyText;
 export function RelativeTime({ value }: { value: string }) {
   const date = new Date(value);
   return Number.isNaN(date.valueOf()) ? (
-    <span>â€”</span>
+    <span>—</span>
   ) : (
     <time dateTime={value} title={date.toLocaleString()}>
       {formatDistanceToNow(date, { addSuffix: true })}
@@ -212,13 +123,19 @@ export function EmptyState({
   title,
   description,
   action,
+  illustration,
 }: {
   title: string;
   description?: string;
   action?: ReactNode;
+  /** Scene from the kit (DESIGN.md §8); only for empty / success / error states. */
+  illustration?: IllustrationName;
 }) {
   return (
     <div className="rounded-lg border border-dashed border-border p-8 text-center">
+      {illustration && (
+        <Illustration name={illustration} size="sm" className="mb-4" />
+      )}
       <h2 className="font-semibold">{title}</h2>
       {description && (
         <p className="my-2 text-sm text-muted-foreground">{description}</p>
@@ -236,6 +153,7 @@ export function ErrorState({
 }) {
   return (
     <div role="alert" className="rounded-lg border border-border p-6">
+      <Illustration name="error-generic" size="sm" className="mb-3" />
       <p>{message}</p>
       <Button onClick={retry} className="mt-3">
         <RotateCcw size={16} /> Retry
@@ -249,29 +167,67 @@ export function ConfirmDialog({
   title,
   description,
   onConfirm,
+  confirmLabel = "Confirm",
+  destructive = false,
+  reason,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   title: string;
   description: string;
-  onConfirm: () => void;
+  /** Receives the trimmed reason when `reason` is set. */
+  onConfirm: (reason?: string) => void;
+  confirmLabel?: string;
+  destructive?: boolean;
+  /** Adds a reason field inside the dialog; `required` blocks Confirm until it is filled. */
+  reason?: { label: string; required?: boolean; placeholder?: string };
 }) {
+  const [text, setText] = useState("");
+  const missing = !!reason?.required && text.trim() === "";
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        if (!next) setText("");
+        onOpenChange(next);
+      }}
+    >
       <DialogContent>
         <DialogTitle>{title}</DialogTitle>
         <DialogDescription className="my-4 text-sm text-muted-foreground">
           {description}
         </DialogDescription>
+        {reason && (
+          <div className="mb-4">
+            <FormField
+              id="confirm-reason"
+              label={reason.label}
+              required={reason.required}
+            >
+              <textarea
+                rows={3}
+                value={text}
+                placeholder={reason.placeholder}
+                onChange={(e) => setText(e.target.value)}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-base focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+              />
+            </FormField>
+          </div>
+        )}
         <div className="flex justify-end gap-2">
-          <Button onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button variant="secondary" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
           <Button
+            variant={destructive ? "destructive" : "primary"}
+            disabled={missing}
             onClick={() => {
-              onConfirm();
+              onConfirm(reason ? text.trim() : undefined);
+              setText("");
               onOpenChange(false);
             }}
           >
-            Confirm
+            {confirmLabel}
           </Button>
         </div>
       </DialogContent>
@@ -282,33 +238,65 @@ export function FormField({
   id,
   label,
   error,
+  hint,
+  required,
+  counter,
   children,
 }: {
   id: string;
   label: string;
   error?: string;
+  /** Helper text under the control (linked with aria-describedby). */
+  hint?: string;
+  /** Shows the red marker inline after the label text (never wraps to its own line). */
+  required?: boolean;
+  /** Character counter, e.g. `{ value: name.length, max: 120 }`. */
+  counter?: { value: number; max: number };
   children: ReactElement<{
     id?: string;
     "aria-describedby"?: string;
     "aria-invalid"?: boolean;
+    "aria-required"?: boolean;
   }>;
 }) {
+  const hintId = hint ? `${id}-hint` : undefined;
   return (
     <div>
-      <label htmlFor={id} className="mb-1 block text-sm font-medium">
-        {label}
-      </label>
+      <div className="mb-1 flex items-baseline justify-between gap-3">
+        <label htmlFor={id} className="text-sm font-medium">
+          {label}
+          {required && (
+            <span aria-hidden="true" className="ml-0.5 text-destructive">
+              *
+            </span>
+          )}
+        </label>
+        {counter && (
+          <span
+            className={`text-xs tabular-nums ${counter.value > counter.max ? "text-destructive" : "text-muted-foreground"}`}
+          >
+            {counter.value}/{counter.max}
+          </span>
+        )}
+      </div>
       {cloneElement(children, {
         id,
         "aria-invalid": !!error,
+        ...(required ? { "aria-required": true } : {}),
         "aria-describedby":
           [
             children.props["aria-describedby"],
+            hintId,
             error ? `${id}-error` : undefined,
           ]
             .filter(Boolean)
             .join(" ") || undefined,
       })}
+      {hint && (
+        <p id={hintId} className="mt-1 text-xs text-muted-foreground">
+          {hint}
+        </p>
+      )}
       {error && (
         <p
           id={`${id}-error`}
@@ -325,17 +313,45 @@ export function StatCard({
   label,
   value,
   detail,
+  to,
+  trend,
 }: {
   label: string;
   value: ReactNode;
   detail?: string;
+  /** Makes the whole card a link (e.g. to the list behind the number). */
+  to?: To;
+  /** Change vs the previous period; the arrow and text carry the meaning, not colour alone. */
+  trend?: { value: string; direction: "up" | "down" | "flat" };
 }) {
-  return (
-    <div className="rounded-lg border border-border bg-card p-5">
+  const body = (
+    <>
       <p className="text-sm text-muted-foreground">{label}</p>
       <p className="mt-2 text-2xl font-semibold tabular-nums">{value}</p>
+      {trend && (
+        <p
+          className={`mt-1 inline-flex items-center gap-1 text-xs font-medium ${trend.direction === "up" ? "text-success" : trend.direction === "down" ? "text-destructive" : "text-muted-foreground"}`}
+        >
+          <span aria-hidden="true">
+            {trend.direction === "up"
+              ? "▲"
+              : trend.direction === "down"
+                ? "▼"
+                : "–"}
+          </span>
+          {trend.value}
+        </p>
+      )}
       {detail && <p className="mt-1 text-xs text-muted-foreground">{detail}</p>}
-    </div>
+    </>
+  );
+  const base = "block rounded-lg border border-border bg-card p-5";
+  return to === undefined ? (
+    <div className={base}>{body}</div>
+  ) : (
+    <Link to={to} className={`${base} hover:bg-muted`}>
+      {body}
+    </Link>
   );
 }
 export function CopyButton({ value }: { value: string }) {

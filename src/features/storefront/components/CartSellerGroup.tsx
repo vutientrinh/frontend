@@ -59,14 +59,20 @@ function ItemNotice({ item }: { item: CartItem }) {
  */
 export type CartLine = CartItem & { compareAtPrice?: MoneyValue };
 
-/** md+ row grid, shared by the column labels and the rows so they line up. */
+/**
+ * Table row grid, shared by the column labels and the rows so they line up. It switches on the
+ * group's own width (container query, ≥ 48rem), not the viewport: next to the order summary or a
+ * shell sidebar the cart column can be much narrower than the screen (TASK-028 F2). Fixed columns
+ * (20 + 72 + 128 + 144 + 128 px + 5 gaps + padding = 584 px) leave the name at least 184 px.
+ * The quantity column is the stepper's width (140 px), so the label centres over it.
+ */
 const rowGrid =
-  "md:grid-cols-[auto_72px_minmax(0,1fr)_8rem_auto_8rem] md:items-start";
+  "@3xl:grid-cols-[auto_72px_minmax(0,1fr)_8rem_9rem_8rem] @3xl:items-start @3xl:gap-x-3";
 
 /**
- * One seller's block in the cart. Rows align on md+ as columns:
+ * One seller's block in the cart. Rows align as columns when the block is ≥ 48rem wide:
  * select · 72px thumb · name/variant/notice · unit price · quantity · line total.
- * On mobile the price, stepper and line total wrap under the name.
+ * Narrower, the price, stepper and line total wrap under the name.
  */
 export function CartSellerGroup({
   seller,
@@ -93,7 +99,7 @@ export function CartSellerGroup({
   return (
     <section
       aria-labelledby={`${groupId}-title`}
-      className="rounded-lg border border-border bg-card"
+      className="@container rounded-lg border border-border bg-card"
     >
       <header className="flex items-center gap-3 border-b border-border px-4 py-1">
         <input
@@ -123,10 +129,10 @@ export function CartSellerGroup({
           </Link>
         </h2>
       </header>
-      {/* Column labels for sighted users on md+; each cell has its own sr-only label. */}
+      {/* Column labels for sighted users in the table layout; each cell has its own sr-only label. */}
       <div
         aria-hidden="true"
-        className={`hidden border-b border-border px-4 py-2 text-xs text-muted-foreground md:grid ${rowGrid}`}
+        className={`hidden border-b border-border px-4 py-2 text-xs text-muted-foreground @3xl:grid ${rowGrid}`}
       >
         <span className="w-5" />
         <span className="col-span-2">Product</span>
@@ -185,23 +191,23 @@ export function CartSellerGroup({
                 <ItemNotice item={item} />
                 <RemoveButton item={item} disabled={busy} onRemove={onRemove} />
               </div>
-              {/* Mobile: unit price, then stepper + line total, under the thumbnail.
-                  md+: three aligned columns. */}
-              <div className="col-span-2 col-start-2 flex flex-wrap items-center gap-x-4 gap-y-2 md:contents">
-                <p className="basis-full text-sm tabular-nums md:basis-auto md:pt-2.5 md:text-right md:text-base">
+              {/* Narrow: unit price, then stepper + line total, under the thumbnail.
+                  Table layout: three aligned columns. */}
+              <div className="col-span-2 col-start-2 flex flex-wrap items-center gap-x-4 gap-y-2 @3xl:contents">
+                <p className="basis-full text-sm tabular-nums @3xl:basis-auto @3xl:pt-2.5 @3xl:text-right @3xl:text-base">
                   <span className="sr-only">Unit price </span>
                   <Amount
                     amount={item.unitPrice}
                     tone={showCompare ? "deal" : "default"}
                   />
                   {showCompare && (
-                    <s className="ml-2 text-xs text-muted-foreground md:ml-0 md:block">
+                    <s className="ml-2 text-xs text-muted-foreground @3xl:ml-0 @3xl:block">
                       <span className="sr-only">List price </span>
                       <Amount amount={item.compareAtPrice!} />
                     </s>
                   )}
                 </p>
-                <div className="md:justify-self-center">
+                <div className="@3xl:justify-self-center">
                   {item.stock > 0 && (
                     <QuantityStepper
                       id={`qty-${item.id}`}
@@ -213,7 +219,7 @@ export function CartSellerGroup({
                     />
                   )}
                 </div>
-                <p className="ml-auto font-semibold tabular-nums md:ml-0 md:pt-2.5 md:text-right md:text-base">
+                <p className="ml-auto font-semibold tabular-nums @3xl:ml-0 @3xl:pt-2.5 @3xl:text-right @3xl:text-base">
                   <span className="sr-only">Line total </span>
                   <Amount amount={lineTotal(item.unitPrice, item.quantity)} />
                 </p>

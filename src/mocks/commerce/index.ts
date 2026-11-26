@@ -3,6 +3,7 @@ import { http, HttpResponse } from "msw";
 import type {
   CheckoutRequest,
   CheckoutResult,
+  OrderSummary,
   OrderAction,
   OnboardingStep,
   PaymentIntent,
@@ -11,12 +12,14 @@ import type {
   SellerOrderDetail,
   SellerOrderStatus,
   SellerOrderTab,
+  ShopperNotification,
   ShopperOrderTab,
 } from "../../features/commerce/types";
 import { getDB, saveDB } from "./db";
 import { identity, bankingData } from "./auth";
 import { SELLER_USER_IDS } from "./seed";
 import { paymentPort } from "./paymentPort";
+import { campaigns } from "./campaigns";
 const API = new URL("/api", location.origin).href;
 const path = (value: string) => `${API}${value}`;
 const id = () => crypto.randomUUID();
@@ -57,7 +60,9 @@ const shopperTabs: Record<ShopperOrderTab, SellerOrderStatus[]> = {
   TO_PAY: ["PENDING_PAYMENT"],
   TO_SHIP: ["PAID", "CONFIRMED", "PACKED"],
   SHIPPING: ["SHIPPED"],
+  TO_RECEIVE: ["SHIPPED"],
   DELIVERED: ["DELIVERED", "COMPLETED"],
+  TO_CONFIRM: ["DELIVERED"],
   RETURNS: ["RETURN_REQUESTED", "RETURNED", "REFUNDED"],
   CANCELLED: ["CANCELLED"],
 };
@@ -318,7 +323,72 @@ const guard =
     )
       return bad(403, "Forbidden");
   };
+type TopUpEvent = {
+  id: string;
+  owner: string;
+  status: "PENDING" | "COMPLETED" | "FAILED" | "EXPIRED";
+  createdAt?: string;
+};
+function topUpsFor(userId: string): TopUpEvent[] {
+  try {
+    const stored = localStorage.getItem("payment-banking-mock-v3");
+    if (!stored) return [];
+    const parsed = JSON.parse(stored) as { topups?: TopUpEvent[] };
+    return (parsed.topups ?? []).filter((topUp) => topUp.owner === userId);
+  } catch {
+    return [];
+  }
+}
+function notificationsFor(request: Request): ShopperNotification[] {
+  const db = getDB();
+  db.notificationReadAt ??= {};
+  const user = owner(request);
+  const orderNotifications = db.orders
+    .filter((order) => belongs(request, order))
+    .map((order): ShopperNotification => {
+      const refunded = ["REFUNDED", "RETURNED"].includes(order.status);
+      const paymentNeeded = order.status === "PENDING_PAYMENT";
+      const kind = refunded || paymentNeeded ? "PAYMENT" : "ORDER";
+      const title = refunded
+        ? "Refund processed"
+        : paymentNeeded
+          ? "Payment needed"
+          : `Order ${order.status.toLowerCase().replaceAll("_", " ")}`;
+      const id = `order-${order.id}-${order.status.toLowerCase()}`;
+      return {
+        id,
+        kind,
+        title,
+        body: refunded
+          ? `A refund for order ${order.orderNumber} has been processed.`
+          : paymentNeeded
+            ? `Complete payment for order ${order.orderNumber}.`
+            : `Order ${order.orderNumber} is ${order.status.toLowerCase().replaceAll("_", " ")}.`,
+        href: `/me/orders/${order.id}`,
+        createdAt: order.timeline.at(-1)?.at ?? order.createdAt,
+        readAt: db.notificationReadAt[id] ?? null,
+      };
+    });
+  const topUpNotifications = topUpsFor(user.id).map(
+    (topUp): ShopperNotification => {
+      const id = `topup-${topUp.id}-${topUp.status.toLowerCase()}`;
+      return {
+        id,
+        kind: "WALLET",
+        title: `Wallet top-up ${topUp.status.toLowerCase()}`,
+        body: `Your wallet top-up is ${topUp.status.toLowerCase()}.`,
+        href: "/wallet/statement",
+        createdAt: topUp.createdAt ?? new Date(0).toISOString(),
+        readAt: db.notificationReadAt[id] ?? null,
+      };
+    },
+  );
+  return [...orderNotifications, ...topUpNotifications].sort(
+    (a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt),
+  );
+}
 export const commerceHandlers = [
+  http.get(path("/campaigns"), () => HttpResponse.json(campaigns)),
   http.all(path("/cart"), guard("shopper")),
   http.all(path("/cart/*"), guard("shopper")),
   http.all(path("/checkout"), guard("shopper")),
@@ -327,11 +397,32 @@ export const commerceHandlers = [
   http.all(path("/dev/payment-intents/*"), guard("shopper")),
   http.all(path("/me/orders"), guard("shopper")),
   http.all(path("/me/orders/*"), guard("shopper")),
+  http.all(path("/me/notifications"), guard("shopper")),
+  http.all(path("/me/notifications/*"), guard("shopper")),
   http.all(path("/seller/*"), guard("seller")),
   http.all(path("/dev/seller/*"), guard("seller")),
-  http.get(path("/catalog/categories"), () =>
-    HttpResponse.json(getDB().categories),
-  ),
+  http.get(path("/catalog/categories"), () => {
+    const db = getDB();
+    const liveProducts = db.products.filter(
+      (product) => product.status === "LIVE",
+    );
+    return HttpResponse.json(
+      db.categories.map((category) => {
+        const slugs = new Set([
+          category.slug,
+          ...db.categories
+            .filter((child) => child.parentId === category.id)
+            .map((child) => child.slug),
+        ]);
+        return {
+          ...category,
+          productCount: liveProducts.filter((product) =>
+            slugs.has(product.category.slug),
+          ).length,
+        };
+      }),
+    );
+  }),
   http.get(path("/catalog/home"), () => {
     expire();
     const db = getDB();
@@ -782,10 +873,73 @@ export const commerceHandlers = [
         : bad(409, "Payment is already terminal");
     },
   ),
+  http.get(path("/me/orders/summary"), ({ request }) => {
+    expire();
+    const orders = getDB().orders.filter((order) => belongs(request, order));
+    const summary: OrderSummary = {
+      toPay: orders.filter((order) => order.status === "PENDING_PAYMENT")
+        .length,
+      toShip: orders.filter((order) =>
+        ["PAID", "CONFIRMED", "PACKED"].includes(order.status),
+      ).length,
+      toReceive: orders.filter((order) => order.status === "SHIPPED").length,
+      toConfirm: orders.filter((order) => order.status === "DELIVERED").length,
+    };
+    return HttpResponse.json(summary);
+  }),
+  http.get(path("/me/notifications"), ({ request }) => {
+    const u = new URL(request.url);
+    return HttpResponse.json(page(notificationsFor(request), u));
+  }),
+  http.get(path("/me/notifications/unread-count"), ({ request }) => {
+    const count = notificationsFor(request).filter(
+      (item) => !item.readAt,
+    ).length;
+    return HttpResponse.json({ count });
+  }),
+  http.post(path("/me/notifications/read"), async ({ request }) => {
+    let input: { ids?: unknown; all?: unknown } | null;
+    try {
+      input = (await request.json()) as {
+        ids?: unknown;
+        all?: unknown;
+      } | null;
+    } catch {
+      return bad(400, "Invalid notification read request");
+    }
+    const hasIds = Array.isArray(input?.ids);
+    const markAll = input?.all === true;
+    if (
+      !input ||
+      hasIds === markAll ||
+      (hasIds &&
+        !(input.ids as unknown[]).every(
+          (value) => typeof value === "string",
+        )) ||
+      (!hasIds && !markAll)
+    )
+      return bad(400, "Provide notification ids or all=true");
+    const db = getDB();
+    db.notificationReadAt ??= {};
+    const available = notificationsFor(request);
+    const ids = markAll
+      ? available.filter((item) => !item.readAt).map((item) => item.id)
+      : (input.ids as string[]).filter((value) =>
+          available.some((item) => item.id === value),
+        );
+    const markedAt = now();
+    for (const notificationId of ids)
+      db.notificationReadAt[notificationId] ??= markedAt;
+    saveDB();
+    return new HttpResponse(null, { status: 204 });
+  }),
   http.get(path("/me/orders"), ({ request }) => {
     expire();
     const u = new URL(request.url);
-    const tab = u.searchParams.get("tab") as ShopperOrderTab | null;
+    const filter = u.searchParams.get("status") ?? u.searchParams.get("tab");
+    if (filter && !Object.hasOwn(shopperTabs, filter))
+      return bad(400, "Invalid order status filter");
+    const tab = filter as ShopperOrderTab | null;
     return HttpResponse.json(
       page(
         getDB().orders.filter(

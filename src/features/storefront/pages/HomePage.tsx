@@ -1,12 +1,12 @@
 import { Link } from "react-router-dom";
 import { ErrorState } from "../../../components/shared";
-import { useCatalogHome } from "../../commerce/api";
+import { useCampaigns, useCatalogHome } from "../../commerce/api";
 import type { CatalogHome } from "../../commerce/types";
 import { CategoryStrip } from "../components/CategoryStrip";
 import { DealsCarousel } from "../components/DealsCarousel";
+import { HeroCarousel, HeroSkeleton } from "../components/HeroCarousel";
 import { PriceTag } from "../components/PriceTag";
 import { ProductGrid } from "../components/ProductGrid";
-import { SearchBar } from "../components/SearchBar";
 import { ProductGridSkeleton } from "../components/States";
 import { discountPercent } from "../lib";
 import { type } from "../type";
@@ -15,30 +15,15 @@ const primaryLink =
   "inline-flex min-h-11 items-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:opacity-90";
 
 /**
- * Hero slot (S-07). Promotional banners when the API has them; otherwise the deepest
- * discount of the day, so the slot always shows a real product and price.
+ * Hero slot (S-07, TASK-029 A3): the campaign carousel from `GET /campaigns`. Without campaigns
+ * (none, or the request failed) it falls back to the deepest discount of the day, so the slot
+ * always shows a real product and price.
  */
 function Hero({ home }: { home: CatalogHome }) {
-  const banner = home.banners[0];
-  if (banner)
-    return (
-      <Link
-        to={banner.href}
-        className="relative block aspect-[21/9] overflow-hidden rounded-lg bg-muted sm:aspect-[32/9]"
-      >
-        <img
-          src={banner.imageUrl}
-          alt=""
-          className="h-full w-full object-cover"
-        />
-        <span className="absolute inset-x-0 bottom-0 bg-background/90 p-4">
-          <strong className="block text-lg">{banner.title}</strong>
-          <span className="text-sm text-muted-foreground">
-            {banner.subtitle}
-          </span>
-        </span>
-      </Link>
-    );
+  const campaigns = useCampaigns();
+  if (campaigns.isLoading) return <HeroSkeleton />;
+  if (campaigns.data?.length)
+    return <HeroCarousel campaigns={campaigns.data.slice(0, 3)} />;
   const top = home.deals
     .filter((p) => p.inStock)
     .sort(
@@ -88,7 +73,7 @@ function Hero({ home }: { home: CatalogHome }) {
   );
 }
 
-/** W-10 Home: search, categories, hero, deals carousel, recommended (no repeats). */
+/** W-10 Home: categories, hero, deals carousel, recommended (no repeats). */
 export default function HomePage() {
   const home = useCatalogHome();
   const dealIds = new Set(home.data?.deals.map((p) => p.id));
@@ -96,10 +81,8 @@ export default function HomePage() {
     home.data?.recommended.filter((p) => !dealIds.has(p.id)) ?? [];
   return (
     <div className="space-y-8">
-      <header className="space-y-4">
-        <h1 className={type.h1}>Shop</h1>
-        <SearchBar />
-      </header>
+      {/* Search lives in the shopper header at every width (TASK-028 S1), so none here. */}
+      <h1 className={type.h1}>Shop</h1>
       {home.isError ? (
         <ErrorState
           message="Could not load the store. Check your connection and try again."

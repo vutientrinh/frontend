@@ -1,4 +1,5 @@
-import { MapPin, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
+import { Illustration } from "../../../components/brand/Illustration";
 import type { Address } from "../../banking/types";
 
 /** Choose a delivery address from `/me/addresses`. Empty state offers adding one. */
@@ -28,9 +29,9 @@ export function SavedAddressPicker({
   );
   if (!addresses.length)
     return (
-      <div className="rounded-lg border border-dashed border-border p-4">
-        <p className="flex items-center gap-2 text-sm">
-          <MapPin size={16} aria-hidden="true" />
+      <div className="flex flex-col items-center rounded-lg border border-dashed border-border p-4 text-center">
+        <Illustration name="empty-addresses" size="sm" />
+        <p className="mt-3 text-sm">
           No saved addresses yet. Add one to see shipping options.
         </p>
         {addButton && <div className="mt-2">{addButton}</div>}

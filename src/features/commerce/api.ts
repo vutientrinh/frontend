@@ -2,8 +2,10 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { request } from "../banking/client";
 import type {
   Cart,
+  Campaign,
   CatalogHome,
   Category,
+  CategoryTreeItem,
   CheckoutQuote,
   CheckoutRequest,
   CheckoutResult,
@@ -12,6 +14,7 @@ import type {
   Onboarding,
   OnboardingStep,
   OnboardingSteps,
+  OrderSummary,
   OrderDetail,
   PageResponse,
   PaymentIntent,
@@ -23,13 +26,21 @@ import type {
   SellerProduct,
   SellerProfile,
   SellerSettings,
+  ShopperNotification,
   ShopperOrder,
+  UnreadCount,
 } from "./types";
 export const commerceKeys = {
   all: ["commerce"] as const,
   catalog: (params: Record<string, string | number | undefined> = {}) =>
     ["commerce", "catalog", params] as const,
   cart: ["commerce", "cart"] as const,
+  campaigns: ["commerce", "campaigns"] as const,
+  categories: ["commerce", "categories"] as const,
+  notifications: (params: Params = {}) =>
+    ["commerce", "notifications", params] as const,
+  unreadCount: ["commerce", "notifications", "unread-count"] as const,
+  orderSummary: ["commerce", "orders", "summary"] as const,
   payment: (id: string) => ["commerce", "payment", id] as const,
   orders: (params: Record<string, string | number | undefined> = {}) =>
     ["commerce", "orders", params] as const,
@@ -64,13 +75,53 @@ function useCommerceMutation<TInput, TOutput>(
 }
 export const useCategories = () =>
   useQuery({
-    queryKey: ["commerce", "categories"],
+    queryKey: commerceKeys.categories,
     queryFn: () => request<Category[]>("/catalog/categories"),
+  });
+export function buildCategoryTree(categories: Category[]): CategoryTreeItem[] {
+  const childrenByParent = new Map<string, Category[]>();
+  for (const category of categories) {
+    if (category.parentId === null) continue;
+    const children = childrenByParent.get(category.parentId) ?? [];
+    children.push(category);
+    childrenByParent.set(category.parentId, children);
+  }
+  return categories
+    .filter((category) => category.parentId === null)
+    .map((category) => ({
+      ...category,
+      children: childrenByParent.get(category.id) ?? [],
+    }));
+}
+export const useCategoryTree = () =>
+  useQuery({
+    queryKey: commerceKeys.categories,
+    queryFn: () => request<Category[]>("/catalog/categories"),
+    select: buildCategoryTree,
+  });
+export const useCategoryPreview = (slug: string | null) =>
+  useQuery({
+    queryKey: commerceKeys.catalog({
+      category: slug ?? "",
+      sort: "best_selling",
+      size: 4,
+    }),
+    queryFn: () =>
+      request<PageResponse<ProductSummary>>(
+        `/catalog/products${query({ category: slug ?? undefined, sort: "best_selling", size: 4 })}`,
+      ),
+    enabled: !!slug,
+    staleTime: 5 * 60 * 1000,
   });
 export const useCatalogHome = () =>
   useQuery({
     queryKey: ["commerce", "home"],
     queryFn: () => request<CatalogHome>("/catalog/home"),
+  });
+export const useCampaigns = () =>
+  useQuery({
+    queryKey: commerceKeys.campaigns,
+    queryFn: () => request<Campaign[]>("/campaigns"),
   });
 export const useCatalogProducts = (params: Params = {}) =>
   useQuery({
@@ -196,6 +247,36 @@ export const useShopperOrders = (params: Params = {}) =>
     queryFn: () =>
       request<PageResponse<ShopperOrder>>(`/me/orders${query(params)}`),
   });
+export const useOrderSummary = () =>
+  useQuery({
+    queryKey: commerceKeys.orderSummary,
+    queryFn: () => request<OrderSummary>("/me/orders/summary"),
+  });
+export const useNotifications = (params: Params = {}) =>
+  useQuery({
+    queryKey: commerceKeys.notifications(params),
+    queryFn: () =>
+      request<PageResponse<ShopperNotification>>(
+        `/me/notifications${query(params)}`,
+      ),
+  });
+export const useUnreadCount = () =>
+  useQuery({
+    queryKey: commerceKeys.unreadCount,
+    queryFn: () => request<UnreadCount>("/me/notifications/unread-count"),
+  });
+export const useMarkNotificationsRead = () => {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { ids: string[] } | { all: true }) =>
+      request<void>("/me/notifications/read", json("POST", input)),
+    onSuccess: () =>
+      Promise.all([
+        client.invalidateQueries({ queryKey: ["commerce", "notifications"] }),
+        client.invalidateQueries({ queryKey: commerceKeys.unreadCount }),
+      ]),
+  });
+};
 export const useShopperOrder = (id: string) =>
   useQuery({
     queryKey: ["commerce", "order", id],

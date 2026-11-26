@@ -1,4 +1,5 @@
 import { humanLabel } from "../../lib/labels";
+import { pageTitle } from "../../config/brand";
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import type { ColumnDef } from "@tanstack/react-table";
@@ -28,7 +29,7 @@ export default function EventMonitor() {
     page = Math.max(0, parseInt(params.get("page") ?? "0", 10) || 0),
     sort = params.get("sort") ?? "";
   useEffect(() => {
-    document.title = "Event monitor | Payment Project";
+    document.title = pageTitle("Event monitor");
   }, []);
   const query = useQuery({
     queryKey: ["events", { status, eventType, page, sort }],

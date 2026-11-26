@@ -237,7 +237,10 @@ export function CheckoutSellerItems({
   );
 }
 
-/** Mobile bottom bar (above the shopper tab bar): total + Place order + why it is blocked. */
+/**
+ * Bottom bar under 1024 px: total + Place order + why it is blocked. It sits on the shopper tab bar when one is
+ * shown (`--tabbar-h`, published by the shell; 0 where the tabs are hidden) and on the safe area (TASK-034 C12).
+ */
 export function CheckoutBar({
   label,
   total,
@@ -250,7 +253,7 @@ export function CheckoutBar({
   action: ReactNode;
 }) {
   return (
-    <div className="fixed inset-x-0 bottom-[calc(64px+env(safe-area-inset-bottom))] z-10 border-t border-border bg-background px-4 py-3 md:bottom-0 md:left-52 md:px-8">
+    <div className="fixed inset-x-0 bottom-[calc(var(--tabbar-h,0px)+env(safe-area-inset-bottom))] z-10 border-t border-border bg-background px-[clamp(16px,4vw,48px)] py-3">
       {reason && <div className="mb-2 text-xs">{reason}</div>}
       <div className="flex items-center gap-3">
         <p className="min-w-0 flex-1 text-sm">

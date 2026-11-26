@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Jadeway">
+  <title>Jadeway</title>
+  <mask id="cut" maskUnits="userSpaceOnUse" x="0" y="0" width="512" height="512">
+    <rect width="512" height="512" fill="#fff"/>
+    <g fill="none" stroke="#000" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M214 204V162a46 46 0 0 1 92 0v42" stroke-width="34"/>
+    <path d="M168 208H344" stroke-width="44"/>
+    <path d="M306 208V302L222 386L156 320" stroke-width="44"/>
+  </g>
+  </mask>
+  <rect width="512" height="512" rx="113" fill="#000000" mask="url(#cut)"/>
+</svg>

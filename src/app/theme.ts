@@ -13,3 +13,11 @@ export function applyTheme(theme: Theme) {
   );
   window.dispatchEvent(new Event("payment-theme-change"));
 }
+
+export function initializeTheme() {
+  const media = window.matchMedia("(prefers-color-scheme: dark)");
+  const update = () => applyTheme(getTheme());
+  update();
+  media.addEventListener("change", update);
+  return () => media.removeEventListener("change", update);
+}

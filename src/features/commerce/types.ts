@@ -20,6 +20,29 @@ export interface Category {
   parentId: string | null;
   iconName: string;
   attributes?: string[];
+  productCount?: number;
+}
+export interface CategoryTreeItem extends Category {
+  children: Category[];
+}
+export type NotificationKind = "ORDER" | "PAYMENT" | "WALLET" | "ACCOUNT";
+export interface ShopperNotification {
+  id: string;
+  kind: NotificationKind;
+  title: string;
+  body: string;
+  href: string;
+  createdAt: string;
+  readAt: string | null;
+}
+export interface UnreadCount {
+  count: number;
+}
+export interface OrderSummary {
+  toPay: number;
+  toShip: number;
+  toReceive: number;
+  toConfirm: number;
 }
 export interface ProductSummary {
   id: string;
@@ -136,6 +159,15 @@ export interface CatalogHome {
   recommended: ProductSummary[];
   categories: Category[];
 }
+export interface Campaign {
+  id: string;
+  title: string;
+  subtitle: string;
+  ctaLabel: string;
+  href: string;
+  image: string;
+  tone: "brand" | "deal" | "neutral";
+}
 export interface CartItem {
   id: string;
   variantId: string;
@@ -197,7 +229,14 @@ export interface CheckoutResult {
   paymentIntent: PaymentIntent;
 }
 export type ShopperOrderTab =
-  "TO_PAY" | "TO_SHIP" | "SHIPPING" | "DELIVERED" | "RETURNS" | "CANCELLED";
+  | "TO_PAY"
+  | "TO_SHIP"
+  | "SHIPPING"
+  | "TO_RECEIVE"
+  | "DELIVERED"
+  | "TO_CONFIRM"
+  | "RETURNS"
+  | "CANCELLED";
 export type OrderAction =
   "PAY" | "CANCEL" | "CONFIRM_RECEIVED" | "RETURN" | "TRACK";
 export interface OrderItemPreview {

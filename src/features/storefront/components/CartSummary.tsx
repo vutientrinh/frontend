@@ -72,7 +72,7 @@ export function CartBar({
   footnote?: ReactNode;
 }) {
   return (
-    <div className="fixed inset-x-0 bottom-[calc(64px+env(safe-area-inset-bottom))] z-10 border-t border-border bg-background px-4 py-3 md:hidden">
+    <div className="fixed inset-x-0 bottom-[calc(var(--tabbar-h,0px)+env(safe-area-inset-bottom))] z-10 border-t border-border bg-background px-4 py-3 md:hidden">
       {footnote && <div className="mb-2 text-xs">{footnote}</div>}
       <div className="flex items-center gap-3">
         <p className="min-w-0 flex-1 text-sm">

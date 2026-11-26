@@ -1,5 +1,5 @@
-import { CircleCheck } from "lucide-react";
 import { Link, useLocation, useParams } from "react-router-dom";
+import { Illustration } from "../../../components/brand/Illustration";
 import { ErrorState } from "../../../components/shared";
 import { useShopperOrders } from "../../commerce/api";
 import type { CheckoutResult } from "../../commerce/types";
@@ -49,10 +49,14 @@ export default function OrderSuccessPage() {
   }
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6">
+    <div className="space-y-6">
       <header>
-        <CircleCheck size={32} aria-hidden="true" className="text-success" />
-        <h1 className={`mt-3 ${type.h1}`}>Order placed and paid</h1>
+        <Illustration
+          name="success-order"
+          size="md"
+          className="justify-start"
+        />
+        <h1 className={`mt-6 ${type.h1}`}>Order placed and paid</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           {fromCheckout ? `Order ${fromCheckout.orderNumber}. ` : ""}
           Each seller ships separately and confirms within 24 hours.

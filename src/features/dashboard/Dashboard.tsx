@@ -4,6 +4,7 @@ import Big from "big.js";
 import { Link, useSearchParams } from "react-router-dom";
 import { api } from "../../api/client";
 import { payments } from "../transactions/lookups";
+import { pageTitle } from "../../config/brand";
 import {
   EmptyState,
   ErrorState,
@@ -35,7 +36,7 @@ export default function Dashboard() {
     setParams(next);
   };
   useEffect(() => {
-    document.title = "Dashboard | Payment Project";
+    document.title = pageTitle("Dashboard");
   }, []);
   const query = useQuery({
     queryKey: ["dashboard", days],
@@ -150,6 +151,7 @@ export default function Dashboard() {
         <EmptyState
           title="No payment activity"
           description="Payments in this period will appear here."
+          illustration="empty-queue"
           action={
             <Link className="text-primary underline" to="/admin/payments/new">
               Create a payment

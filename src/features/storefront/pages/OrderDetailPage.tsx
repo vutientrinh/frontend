@@ -24,6 +24,7 @@ import {
 } from "../components/OrderDetailParts";
 import { OrderProgress } from "../components/OrderProgress";
 import { OrderSummary } from "../components/OrderSummary";
+import { StoreNotFound } from "../components/States";
 import { errorMessage } from "../hooks";
 import { formatOrderDateTime, sumMoney } from "../lib";
 import { type } from "../type";
@@ -126,15 +127,12 @@ export default function OrderDetailPage() {
 
   if (order.isError)
     return order.error instanceof ApiError && order.error.status === 404 ? (
-      <div className="py-10">
-        <h1 className={type.h1}>Order not found</h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          It may belong to another account, or the link is incomplete.
-        </p>
-        <Link to="/me/orders" className="mt-4 inline-block text-primary">
-          View my orders
-        </Link>
-      </div>
+      <StoreNotFound
+        title="Order not found"
+        description="It may belong to another account, or the link is incomplete."
+        to="/me/orders"
+        linkLabel="View my orders"
+      />
     ) : (
       <ErrorState
         message="Could not load this order."

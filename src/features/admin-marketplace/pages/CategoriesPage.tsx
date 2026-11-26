@@ -269,6 +269,7 @@ export default function CategoriesPage() {
           <EmptyState
             title="No categories yet"
             description="Add the first top-level category to start the catalog."
+            illustration="empty-queue"
           />
         ) : (
           <ul aria-label="Category tree">

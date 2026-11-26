@@ -21,7 +21,8 @@ import {
 import type { CheckoutResult, PaymentIntent } from "../../commerce/types";
 import { QrImage } from "../components/QrImage";
 import { ReservationTimer } from "../components/ReservationTimer";
-import { ListSkeleton } from "../components/States";
+import { Illustration } from "../../../components/brand/Illustration";
+import { ListSkeleton, StoreNotFound } from "../components/States";
 import { Amount } from "../components/Amount";
 import { errorMessage } from "../hooks";
 import { type } from "../type";
@@ -294,12 +295,12 @@ export default function PaymentPage() {
 
   if (intent.isError)
     return intent.error instanceof ApiError && intent.error.status === 404 ? (
-      <div className="py-10">
-        <h1 className={type.h1}>Payment not found</h1>
-        <Link to="/me/orders" className="mt-4 inline-block text-primary">
-          View my orders
-        </Link>
-      </div>
+      <StoreNotFound
+        title="Payment not found"
+        description="The payment link may be old or belong to another account."
+        to="/me/orders"
+        linkLabel="View my orders"
+      />
     ) : (
       <ErrorState
         message="Could not load the payment."
@@ -315,7 +316,7 @@ export default function PaymentPage() {
   const refetch = () => void intent.refetch();
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6">
+    <div className="space-y-6">
       <PaymentHero
         intent={p}
         active={active}
@@ -368,8 +369,13 @@ export default function PaymentPage() {
 
       {p.status === "SUCCEEDED" && (
         <section role="status" className="space-y-3">
-          <p className="flex items-center gap-2 font-medium text-success">
-            <CircleCheck size={20} aria-hidden="true" /> Payment received
+          <Illustration
+            name="success-payment"
+            size="md"
+            className="justify-start"
+          />
+          <p className="text-sm text-muted-foreground">
+            The seller ships next. We hold your money until the order arrives.
           </p>
           <Link to="/me/orders?tab=TO_SHIP" className={primaryButton}>
             View my orders

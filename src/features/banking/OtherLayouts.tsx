@@ -1,4 +1,6 @@
-﻿import { NavLink, Outlet } from "react-router-dom";
+import { NavLink, Outlet } from "react-router-dom";
+import { Page } from "../../components/layout/Page";
+import { ThemeSwitch } from "../../components/layout/ThemeSwitch";
 export function SellerLayout() {
   return (
     <main className="p-8">
@@ -11,16 +13,24 @@ export function SellerLayout() {
 export function BankLayout() {
   return (
     <div className="min-h-screen border-t-8 border-status-processing bg-muted/40">
-      <header className="flex flex-wrap items-center justify-between gap-4 border-b border-border bg-background px-5 py-4 md:px-8">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-status-processing">
-            External systems
-          </p>
-          <h1 className="text-xl font-semibold">Bank simulator</h1>
-        </div>
-        <span className="rounded-full border border-status-processing px-3 py-1 text-sm font-medium text-status-processing">
-          Simulator
-        </span>
+      <header className="border-b border-border bg-background">
+        <Page
+          width="wide"
+          className="flex flex-wrap items-center justify-between gap-4 py-4"
+        >
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-status-processing">
+              External systems
+            </p>
+            <h1 className="text-xl font-semibold">Bank simulator</h1>
+          </div>
+          <div className="flex items-center gap-3">
+            <ThemeSwitch />
+            <span className="rounded-full border border-status-processing px-3 py-1 text-sm font-medium text-status-processing">
+              Simulator
+            </span>
+          </div>
+        </Page>
       </header>
       <div className="md:flex">
         <nav
@@ -44,8 +54,10 @@ export function BankLayout() {
             </NavLink>
           ))}
         </nav>
-        <main className="min-w-0 flex-1 p-5 pb-10 md:p-8">
-          <Outlet />
+        <main className="min-w-0 flex-1 py-5 pb-10 md:py-8">
+          <Page width="wide">
+            <Outlet />
+          </Page>
         </main>
       </div>
     </div>

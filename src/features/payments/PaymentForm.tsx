@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
+import { pageTitle } from "../../config/brand";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { api } from "../../api/client";
@@ -23,7 +24,7 @@ export default function PaymentForm() {
     [error, setError] = useState(""),
     [ambiguous, setAmbiguous] = useState(false);
   useEffect(() => {
-    document.title = "Create payment | Payment Project";
+    document.title = pageTitle("Create payment");
   }, []);
   const query = useQuery({
     queryKey: ["eligible-orders"],

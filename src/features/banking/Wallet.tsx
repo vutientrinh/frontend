@@ -19,6 +19,7 @@ import {
   useSearchParams,
 } from "react-router-dom";
 import { Button } from "../../components/ui/button";
+import { Illustration } from "../../components/brand/Illustration";
 import { ErrorState, Money, StatusBadge } from "../../components/shared";
 import { ApiError, request } from "./client";
 import type {
@@ -31,6 +32,7 @@ import type {
 } from "./types";
 import { OtpChallenge } from "./OtpChallenge";
 import { useAuth } from "./AuthContext";
+import { useBalanceVisibility } from "./useBalanceVisibility";
 const getWallet = () => request<Wallet>("/wallets/me");
 const getTransactions = (query = "") =>
   request<Page<Transaction>>(`/wallets/me/transactions${query}`);
@@ -195,12 +197,15 @@ function Transactions({
 }) {
   if (!items.length)
     return (
-      <p className="py-6 text-muted-foreground">
-        No transactions yet.{" "}
-        <Link className="text-primary" to="/wallet/top-up">
-          Top up your wallet
-        </Link>
-      </p>
+      <div className="py-5 text-center">
+        <Illustration name="empty-statement" size="sm" className="mb-3" />
+        <p className="text-muted-foreground">
+          No transactions yet.{" "}
+          <Link className="text-primary" to="/wallet/top-up">
+            Top up your wallet
+          </Link>
+        </p>
+      </div>
     );
   if (!groupByDay) return <TransactionRows items={items} />;
   const groups = new Map<string, Transaction[]>();
@@ -227,7 +232,7 @@ function Transactions({
   );
 }
 export function WalletHome() {
-  const [visible, setVisible] = useState(true),
+  const [visible, setVisible] = useBalanceVisibility(),
     wallet = useQuery({ queryKey: ["wallet"], queryFn: getWallet }),
     transactions = useQuery({
       queryKey: ["wallet", "transactions", "recent"],
@@ -267,6 +272,7 @@ export function WalletHome() {
         <button
           aria-label={visible ? "Hide balance" : "Show balance"}
           className="flex min-h-11 items-center gap-2 rounded px-3 text-primary hover:bg-muted"
+          aria-pressed={visible}
           onClick={() => setVisible(!visible)}
         >
           {visible ? <EyeOff size={18} /> : <Eye size={18} />}
@@ -745,6 +751,9 @@ export function Receipt() {
       <Link className="text-primary" to="/wallet">
         ← Wallet
       </Link>
+      {tx.status === "COMPLETED" && (
+        <Illustration name="success-transfer" size="md" className="mt-4" />
+      )}
       <h1 className="mt-5 text-2xl font-semibold">Transfer receipt</h1>
       <p className="mt-4 text-3xl font-semibold">
         <Money amount={tx.amount} />

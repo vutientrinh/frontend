@@ -1,5 +1,6 @@
 import { Link, useParams } from "react-router-dom";
 import { ApiError } from "../../banking/client";
+import { Illustration } from "../../../components/brand/Illustration";
 import {
   ErrorState,
   KeyValueList,
@@ -147,9 +148,10 @@ export default function CustomerDetailPage() {
               </table>
             </div>
           ) : (
-            <p className="text-sm text-muted-foreground">
+            <div className="text-sm text-muted-foreground">
+              <Illustration name="empty-statement" size="sm" className="mb-3" />
               No transactions yet.
-            </p>
+            </div>
           )}
         </Section>
         <Section title="Recent orders">
