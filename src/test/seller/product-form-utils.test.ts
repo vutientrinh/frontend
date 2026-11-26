@@ -94,4 +94,24 @@ describe("seller product form helpers", () => {
       variants: expect.stringContaining("Each variant needs a SKU"),
     });
   });
+
+  it("requires a compare-at price above the selling price", () => {
+    const draft = (compareAtPrice: string) =>
+      validDraft({
+        variants: [
+          {
+            sku: "MUG-1",
+            options: {},
+            price: "120000",
+            compareAtPrice,
+            stock: 4,
+            weightGrams: 500,
+          },
+        ],
+      });
+    expect(validateProductDraft(draft("120000")).variants).toBe(
+      "Each compare-at price must be higher than the price.",
+    );
+    expect(validateProductDraft(draft("150000"))).toEqual({});
+  });
 });

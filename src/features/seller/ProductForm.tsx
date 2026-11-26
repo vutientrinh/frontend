@@ -7,20 +7,30 @@ import {
   type DragEvent,
   type FormEvent,
 } from "react";
-import { useBlocker, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { ArrowDown, ArrowUp, Check, ImagePlus, Plus, X } from "lucide-react";
 import Big from "big.js";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import { SearchCombobox } from "../../components/SearchCombobox";
-import { MoneyText } from "../../components/shared";
+import { ConfirmDialog, FormField, MoneyText } from "../../components/shared";
+import { Card } from "../../components/ui/card";
+import {
+  ProductCardView,
+  type CardProduct,
+} from "../storefront/components/ProductCard";
 import {
   useCategories,
   useSaveSellerProduct,
   useSellerProductAction,
+  useSellerSettings,
 } from "../commerce/api";
 import type { Category, ProductDetail, ProductWrite } from "../commerce/types";
+import { MAX_IMAGE_BYTES, readImage } from "./image-utils";
+import { MoneyInput } from "./MoneyInput";
+import { useUnsavedGuard } from "./useUnsavedGuard";
 import {
+  compareAtTooLow,
   generateVariantMatrix,
   productWriteFromDraft,
   validateProductDraft,
@@ -28,7 +38,14 @@ import {
   type ProductFormErrors,
 } from "./product-form-utils";
 
-const sectionClass = "scroll-mt-24 rounded-lg border border-border bg-card p-5";
+const sectionClass = "scroll-mt-36 rounded-lg border border-border bg-card p-5";
+const SECTIONS = [
+  ["basic-info", "Basic info"],
+  ["media", "Media"],
+  ["options", "Options & variants"],
+  ["shipping", "Shipping"],
+  ["attributes", "Category attributes"],
+] as const;
 const fieldClass = "grid gap-2 text-small font-medium";
 const inputClass = "min-h-11 text-body";
 const defaultVariant: ProductWrite["variants"][number] = {
@@ -61,18 +78,6 @@ function productSnapshot(product?: ProductDetail) {
   return JSON.stringify(payload);
 }
 
-function readImage(file: File) {
-  return new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () =>
-      typeof reader.result === "string"
-        ? resolve(reader.result)
-        : reject(new Error(`Could not read ${file.name}.`));
-    reader.onerror = () => reject(new Error(`Could not read ${file.name}.`));
-    reader.readAsDataURL(file);
-  });
-}
-
 function InlineError({ id, children }: { id: string; children?: string }) {
   return children ? (
     <p id={id} className="text-sm font-normal text-destructive">
@@ -82,92 +87,54 @@ function InlineError({ id, children }: { id: string; children?: string }) {
 }
 
 function ProductPreview({
-  name,
-  description,
-  image,
-  price,
-  category,
+  product,
+  hasPrice,
   checklist,
 }: {
-  name: string;
-  description: string;
-  image?: string;
-  price?: string;
-  category: string;
+  product: CardProduct;
+  hasPrice: boolean;
   checklist: { label: string; complete: boolean }[];
 }) {
   return (
     <aside
-      className="h-fit lg:sticky lg:top-4"
+      className="h-fit xl:sticky xl:top-20 xl:max-h-[calc(100dvh-10rem)] xl:overflow-y-auto"
       aria-label="Live product preview"
     >
-      <section className="overflow-hidden rounded-lg border border-border bg-card">
-        <div className="border-b border-border p-4">
-          <h2 className="font-semibold">Live preview</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Updates as you edit
+      <Card className="p-4">
+        <h2 className="font-semibold">Live preview</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          The card shoppers see in search results and lists.
+        </p>
+        <div className="mx-auto mt-4 grid max-w-60">
+          <ProductCardView product={product} showAction />
+        </div>
+        {!hasPrice && (
+          <p className="mt-2 text-center text-sm text-muted-foreground">
+            Set a price to see it on the card.
           </p>
+        )}
+        <div className="mt-4 border-t border-border pt-4">
+          <h3 className="text-sm font-semibold">Completeness</h3>
+          <ul className="mt-2 grid gap-2 text-sm">
+            {checklist.map(({ label, complete }) => (
+              <li key={label} className="flex items-center gap-2">
+                <span
+                  className={
+                    complete ? "text-status-completed" : "text-muted-foreground"
+                  }
+                  aria-hidden="true"
+                >
+                  {complete ? <Check size={16} /> : "○"}
+                </span>
+                <span>{label}</span>
+                <span className="sr-only">
+                  {complete ? "(done)" : "(to do)"}
+                </span>
+              </li>
+            ))}
+          </ul>
         </div>
-        <div className="p-4">
-          <article className="overflow-hidden rounded-lg border border-border">
-            <div className="aspect-square bg-muted">
-              {image ? (
-                <img
-                  src={image}
-                  alt={name ? `${name} product preview` : "Product preview"}
-                  width={480}
-                  height={480}
-                  className="size-full object-cover"
-                />
-              ) : (
-                <div className="flex size-full items-center justify-center text-muted-foreground">
-                  <ImagePlus size={32} aria-hidden="true" />
-                </div>
-              )}
-            </div>
-            <div className="space-y-1.5 p-3">
-              <p className="line-clamp-2 font-medium">
-                {name || "Product name"}
-              </p>
-              <p className="text-sm text-muted-foreground">
-                {category || "Choose a category"}
-              </p>
-              <p className="font-semibold tabular-nums">
-                {price ? <MoneyText amount={price} /> : "Set a price"}
-              </p>
-            </div>
-          </article>
-          <div className="mt-4 border-t border-border pt-4">
-            <h3 className="text-sm font-semibold">Product page preview</h3>
-            <p className="mt-2 line-clamp-3 text-sm text-muted-foreground">
-              {description || "Your description will appear here."}
-            </p>
-            <Button className="mt-3 w-full" disabled>
-              Add to cart
-            </Button>
-          </div>
-          <div className="mt-4 border-t border-border pt-4">
-            <h3 className="text-sm font-semibold">Completeness</h3>
-            <ul className="mt-2 grid gap-2 text-sm">
-              {checklist.map(({ label, complete }) => (
-                <li key={label} className="flex items-center gap-2">
-                  <span
-                    className={
-                      complete
-                        ? "text-status-completed"
-                        : "text-muted-foreground"
-                    }
-                    aria-hidden="true"
-                  >
-                    {complete ? <Check size={16} /> : "○"}
-                  </span>
-                  <span>{label}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </div>
-      </section>
+      </Card>
     </aside>
   );
 }
@@ -178,6 +145,8 @@ export function ProductForm({ product }: { product?: ProductDetail }) {
   const categories = useCategories();
   const save = useSaveSellerProduct();
   const submitReview = useSellerProductAction();
+  const settings = useSellerSettings();
+  const [activeSection, setActiveSection] = useState<string>(SECTIONS[0][0]);
   const [name, setName] = useState(product?.name ?? "");
   const [categorySlug, setCategorySlug] = useState(
     product?.category.slug ?? "",
@@ -205,6 +174,9 @@ export function ProductForm({ product }: { product?: ProductDetail }) {
   const [initialSnapshot, setInitialSnapshot] = useState(() =>
     productSnapshot(product),
   );
+  const [pendingNavigation, setPendingNavigation] = useState<string | null>(
+    null,
+  );
 
   const draft: ProductDraft = {
     name,
@@ -221,18 +193,34 @@ export function ProductForm({ product }: { product?: ProductDetail }) {
   const isDirty =
     snapshot !== initialSnapshot ||
     Object.values(valueInputs).some((value) => value.trim().length > 0);
-  const blocker = useBlocker(
-    isDirty && !save.isPending && !submitReview.isPending,
-  );
+  const canLeave = !isDirty || save.isPending || submitReview.isPending;
+  const requestNavigation = (to: string) => {
+    if (canLeave) navigate(to);
+    else setPendingNavigation(to);
+  };
+  useUnsavedGuard(!canLeave, setPendingNavigation);
+  // Set by a chip click so its own scroll does not move the highlight elsewhere.
+  const jumping = useRef(false);
   useEffect(() => {
-    if (!isDirty) return;
-    const preventClose = (event: BeforeUnloadEvent) => {
-      event.preventDefault();
-      event.returnValue = "";
+    // The active chip is the last section whose top has passed the sticky bars.
+    const onScroll = () => {
+      if (jumping.current) {
+        jumping.current = false;
+        return;
+      }
+      const root = document.documentElement;
+      let current: string = SECTIONS[0][0];
+      for (const [id] of SECTIONS) {
+        const section = document.getElementById(id);
+        if (section && section.getBoundingClientRect().top <= 160) current = id;
+      }
+      if (window.innerHeight + window.scrollY >= root.scrollHeight - 2)
+        current = SECTIONS[SECTIONS.length - 1][0];
+      setActiveSection(current);
     };
-    window.addEventListener("beforeunload", preventClose);
-    return () => window.removeEventListener("beforeunload", preventClose);
-  }, [isDirty]);
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
 
   const selectedCategory = categories.data?.find(
     (item) => item.slug === categorySlug,
@@ -246,13 +234,36 @@ export function ProductForm({ product }: { product?: ProductDetail }) {
     [categories.data],
   );
   const customFields = selectedCategory?.attributes ?? [];
-  const firstPrice = variants.find((variant) =>
-    /^\d+$/.test(variant.price),
-  )?.price;
   const prices = variants
     .map((variant) => variant.price)
     .filter((price) => /^\d+$/.test(price))
     .sort((a, b) => (new Big(a).lt(b) ? -1 : new Big(a).gt(b) ? 1 : 0));
+  const isAmount = (value?: string) => !!value && /^\d+$/.test(value);
+  // Shoppers see the first variant's price on the card.
+  const first = variants[0];
+  const preview: CardProduct = {
+    id: product?.id ?? "preview",
+    slug: product?.slug ?? "",
+    name: name.trim() || "Untitled product",
+    imageUrl: images[0] ?? "",
+    price: isAmount(first?.price) ? first.price : "0",
+    // The listing keeps its own list price until a variant sets one.
+    compareAtPrice: isAmount(first?.compareAtPrice)
+      ? first.compareAtPrice
+      : product?.compareAtPrice,
+    rating: product?.rating ?? "0",
+    ratingCount: product?.ratingCount ?? 0,
+    soldCount: product?.soldCount ?? 0,
+    variantCount: variants.length,
+    seller: product?.seller ?? {
+      id: "preview",
+      slug: "",
+      name: settings.data?.shopName ?? "Your shop",
+      location: settings.data?.location ?? "",
+      rating: "0",
+    },
+    inStock: variants.some((variant) => variant.stock > 0),
+  };
   const checklist = [
     { label: "Add 3 or more images", complete: images.length >= 3 },
     { label: "Set a product name", complete: !!name.trim() },
@@ -292,8 +303,8 @@ export function ProductForm({ product }: { product?: ProductDetail }) {
       setImageError("You can add up to 9 images.");
       return;
     }
-    if (selected.some((file) => file.size > 1_000_000)) {
-      setImageError("Each image must be 1 MB or smaller for mock storage.");
+    if (selected.some((file) => file.size > MAX_IMAGE_BYTES)) {
+      setImageError("Each image must be 1 MB or smaller.");
       return;
     }
     const existingSize = images.reduce(
@@ -305,9 +316,7 @@ export function ProductForm({ product }: { product?: ProductDetail }) {
       existingSize + selected.reduce((total, file) => total + file.size, 0) >
       3_000_000
     ) {
-      setImageError(
-        "Keep the combined image size under 3 MB for mock storage.",
-      );
+      setImageError("Keep the combined image size under 3 MB.");
       return;
     }
     try {
@@ -457,7 +466,7 @@ export function ProductForm({ product }: { product?: ProductDetail }) {
   const fieldError = (field: keyof ProductFormErrors) => errors[field];
 
   return (
-    <form ref={formRef} onSubmit={onSubmit} noValidate className="pb-24">
+    <form ref={formRef} onSubmit={onSubmit} noValidate>
       {Object.keys(errors).length > 0 && (
         <div
           role="alert"
@@ -481,47 +490,40 @@ export function ProductForm({ product }: { product?: ProductDetail }) {
           {serverError}
         </p>
       )}
-      {blocker.state === "blocked" && (
-        <div
-          role="alert"
-          className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-md border border-status-pending/40 bg-status-pending/5 p-4"
-        >
-          <p className="text-sm">
-            You have unsaved product changes. Leave and discard them?
-          </p>
-          <div className="flex gap-2">
-            <Button
-              type="button"
-              className="border border-border bg-transparent text-foreground hover:bg-muted"
-              onClick={() => blocker.reset()}
-            >
-              Keep editing
-            </Button>
-            <Button type="button" onClick={() => blocker.proceed()}>
-              Leave without saving
-            </Button>
-          </div>
-        </div>
-      )}
+      <ConfirmDialog
+        open={pendingNavigation !== null}
+        onOpenChange={(open) => {
+          if (!open) setPendingNavigation(null);
+        }}
+        title="Discard unsaved changes?"
+        description="You have unsaved product changes. Leave and discard them?"
+        confirmLabel="Leave without saving"
+        destructive
+        onConfirm={() => {
+          if (pendingNavigation) navigate(pendingNavigation);
+        }}
+      />
 
-      <div className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
-        <div className="grid min-w-0 content-start gap-5">
+      <div className="grid min-w-0 grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
+        <div className="grid min-w-0 grid-cols-1 content-start gap-5">
           <nav
             aria-label="Product form sections"
-            className="flex flex-wrap gap-2 text-sm"
+            className="sticky top-16 z-20 flex gap-2 overflow-x-auto bg-background py-2 text-sm"
           >
-            {[
-              ["basic-info", "Basic info"],
-              ["media", "Media"],
-              ["options", "Options & variants"],
-              ["pricing", "Pricing"],
-              ["shipping", "Shipping"],
-              ["attributes", "Category attributes"],
-            ].map(([id, label]) => (
+            {SECTIONS.map(([id, label]) => (
               <a
                 key={id}
                 href={`#${id}`}
-                className="rounded border border-border px-3 py-2 hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2"
+                aria-current={activeSection === id ? "true" : undefined}
+                onClick={(event) => {
+                  // Scroll here: a hash change would reach the app's scroll
+                  // manager as a history move and jump back to the top.
+                  event.preventDefault();
+                  setActiveSection(id);
+                  jumping.current = true;
+                  document.getElementById(id)?.scrollIntoView?.();
+                }}
+                className={`inline-flex min-h-11 shrink-0 items-center rounded-md border px-3 focus-visible:outline-2 focus-visible:outline-offset-[-2px] ${activeSection === id ? "border-primary bg-muted font-semibold" : "border-border hover:bg-muted"}`}
               >
                 {label}
               </a>
@@ -534,17 +536,19 @@ export function ProductForm({ product }: { product?: ProductDetail }) {
               Give shoppers the details they need to find your product.
             </p>
             <div className="grid gap-4">
-              <label className={fieldClass}>
-                Product name <span className="text-destructive">*</span>
+              <FormField
+                id="product-name"
+                label="Product name"
+                required
+                counter={{ value: name.length, max: 120 }}
+                error={fieldError("name")}
+              >
                 <Input
                   name="name"
                   autoComplete="off"
                   maxLength={120}
+                  className="min-h-11"
                   value={name}
-                  aria-invalid={!!fieldError("name")}
-                  aria-describedby={
-                    fieldError("name") ? "name-error name-count" : "name-count"
-                  }
                   onChange={(event) =>
                     setField("name", event.target.value, setName)
                   }
@@ -556,14 +560,7 @@ export function ProductForm({ product }: { product?: ProductDetail }) {
                       }));
                   }}
                 />
-                <span
-                  id="name-count"
-                  className="font-normal text-muted-foreground"
-                >
-                  {name.length}/120 characters
-                </span>
-                <InlineError id="name-error">{fieldError("name")}</InlineError>
-              </label>
+              </FormField>
               <div className={fieldClass}>
                 <span>
                   Category <span className="text-destructive">*</span>
@@ -577,7 +574,11 @@ export function ProductForm({ product }: { product?: ProductDetail }) {
                 ) : categories.isError ? (
                   <div role="alert" className="text-sm text-destructive">
                     Categories could not load.{" "}
-                    <Button onClick={() => void categories.refetch()}>
+                    <Button
+                      variant="secondary"
+                      className="min-h-11"
+                      onClick={() => void categories.refetch()}
+                    >
                       Retry
                     </Button>
                   </div>
@@ -606,18 +607,17 @@ export function ProductForm({ product }: { product?: ProductDetail }) {
                   {fieldError("categorySlug")}
                 </InlineError>
               </div>
-              <label className={fieldClass}>
-                Description <span className="text-destructive">*</span>
+              <FormField
+                id="product-description"
+                label="Description"
+                required
+                counter={{ value: description.length, max: 3000 }}
+                error={fieldError("description")}
+              >
                 <textarea
                   name="description"
                   maxLength={3000}
                   value={description}
-                  aria-invalid={!!fieldError("description")}
-                  aria-describedby={
-                    fieldError("description")
-                      ? "description-error description-count"
-                      : "description-count"
-                  }
                   onChange={(event) =>
                     setField("description", event.target.value, setDescription)
                   }
@@ -628,18 +628,9 @@ export function ProductForm({ product }: { product?: ProductDetail }) {
                         description: "Add a product description.",
                       }));
                   }}
-                  className="min-h-32 rounded-md border border-border bg-background p-3 text-base focus-visible:outline-2 focus-visible:outline-offset-2"
+                  className="min-h-32 w-full rounded-md border border-input bg-background p-3 text-base focus-visible:outline-2 focus-visible:outline-offset-2"
                 />
-                <span
-                  id="description-count"
-                  className="font-normal text-muted-foreground"
-                >
-                  {description.length}/3000 characters
-                </span>
-                <InlineError id="description-error">
-                  {fieldError("description")}
-                </InlineError>
-              </label>
+              </FormField>
             </div>
           </section>
 
@@ -648,8 +639,8 @@ export function ProductForm({ product }: { product?: ProductDetail }) {
               <div>
                 <h2 className="text-lg font-semibold">Media</h2>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Add up to 9 images. The first image is the cover. Image data
-                  stays in this mock browser.
+                  Add up to 9 images (1 MB each, 3 MB in total). The first image
+                  is the cover.
                 </p>
               </div>
               <span className="text-sm tabular-nums text-muted-foreground">
@@ -666,7 +657,7 @@ export function ProductForm({ product }: { product?: ProductDetail }) {
                 aria-hidden="true"
               />
               <p className="text-sm">Drop images here or choose files</p>
-              <label className="mt-3 inline-flex min-h-11 cursor-pointer items-center rounded-md border border-border px-4 text-sm font-medium hover:bg-muted focus-within:outline-2 focus-within:outline-offset-2">
+              <label className="mt-3 inline-flex min-h-11 cursor-pointer items-center rounded-md border border-input px-4 text-sm font-medium hover:bg-muted focus-within:outline-2 focus-within:outline-offset-2">
                 Add images
                 <input
                   name="image-upload"
@@ -696,7 +687,7 @@ export function ProductForm({ product }: { product?: ProductDetail }) {
             )}
             {images.length > 0 && (
               <ul
-                className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3"
+                className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-[repeat(auto-fill,minmax(220px,1fr))]"
                 aria-label="Product images"
               >
                 {images.map((image, index) => (
@@ -713,14 +704,15 @@ export function ProductForm({ product }: { product?: ProductDetail }) {
                         className="size-full object-cover"
                       />
                     </div>
-                    <div className="flex min-h-11 items-center justify-between gap-1 p-2">
-                      <span className="truncate font-mono text-caption">
+                    <div className="grid gap-1 p-2">
+                      <span className="truncate text-xs text-muted-foreground">
                         {index === 0 ? "Cover image" : `Image ${index + 1}`}
                       </span>
-                      <div className="flex items-center gap-1">
+                      <div className="flex flex-wrap items-center gap-1">
                         {index > 0 && (
                           <Button
                             type="button"
+                            variant="secondary"
                             aria-label={`Set image ${index + 1} as cover`}
                             className="min-h-11 px-2 text-xs"
                             onClick={() =>
@@ -735,9 +727,10 @@ export function ProductForm({ product }: { product?: ProductDetail }) {
                         )}
                         <Button
                           type="button"
+                          variant="ghost"
                           aria-label={`Move image ${index + 1} earlier`}
                           disabled={index === 0}
-                          className="size-9 px-0"
+                          className="size-11 px-0"
                           onClick={() =>
                             setImages((current) =>
                               current.map((value, row) =>
@@ -754,9 +747,10 @@ export function ProductForm({ product }: { product?: ProductDetail }) {
                         </Button>
                         <Button
                           type="button"
+                          variant="ghost"
                           aria-label={`Move image ${index + 1} later`}
                           disabled={index === images.length - 1}
-                          className="size-9 px-0"
+                          className="size-11 px-0"
                           onClick={() =>
                             setImages((current) =>
                               current.map((value, row) =>
@@ -773,8 +767,9 @@ export function ProductForm({ product }: { product?: ProductDetail }) {
                         </Button>
                         <Button
                           type="button"
+                          variant="ghost"
                           aria-label={`Remove image ${index + 1}`}
-                          className="size-9 px-0"
+                          className="size-11 px-0"
                           onClick={() =>
                             setImages((current) =>
                               current.filter((_, row) => row !== index),
@@ -823,6 +818,7 @@ export function ProductForm({ product }: { product?: ProductDetail }) {
                     </label>
                     <Button
                       type="button"
+                      variant="ghost"
                       aria-label={`Remove option ${option.name || index + 1}`}
                       className="min-h-11"
                       onClick={() =>
@@ -861,13 +857,13 @@ export function ProductForm({ product }: { product?: ProductDetail }) {
                     {option.values.map((value) => (
                       <span
                         key={value}
-                        className="inline-flex min-h-9 items-center gap-1 rounded-full border border-border px-3 text-sm"
+                        className="inline-flex min-h-11 items-center rounded-full border border-border pl-3 text-sm"
                       >
                         {value}
                         <button
                           type="button"
                           aria-label={`Remove ${value} from ${option.name}`}
-                          className="rounded-full p-1 hover:bg-muted focus-visible:outline-2"
+                          className="grid size-11 place-items-center rounded-full hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-[-2px]"
                           onClick={() =>
                             updateOptions(
                               options.map((item, row) =>
@@ -897,7 +893,8 @@ export function ProductForm({ product }: { product?: ProductDetail }) {
               ))}
               <Button
                 type="button"
-                className="w-fit"
+                variant="secondary"
+                className="min-h-11 w-fit"
                 onClick={() =>
                   updateOptions([...options, { name: "", values: [] }])
                 }
@@ -911,25 +908,38 @@ export function ProductForm({ product }: { product?: ProductDetail }) {
                 <div>
                   <h3 className="font-semibold">Variant matrix</h3>
                   <p className="mt-1 text-sm text-muted-foreground">
-                    {variants.length} variant{variants.length === 1 ? "" : "s"}{" "}
-                    generated
+                    {variants.length} variant{variants.length === 1 ? "" : "s"}
+                    {prices.length > 0 && (
+                      <>
+                        {" · "}
+                        <MoneyText amount={prices[0]} size="small" />
+                        {prices[0] !== prices[prices.length - 1] && (
+                          <>
+                            {" – "}
+                            <MoneyText
+                              amount={prices[prices.length - 1]}
+                              size="small"
+                            />
+                          </>
+                        )}
+                      </>
+                    )}
                   </p>
                 </div>
                 <div className="flex flex-wrap items-end gap-2">
                   <label className={fieldClass}>
                     Apply price
-                    <Input
+                    <MoneyInput
                       aria-label="Bulk price"
-                      inputMode="numeric"
-                      pattern="[0-9]*"
                       value={bulkPrice}
-                      onChange={(event) => setBulkPrice(event.target.value)}
+                      onValueChange={setBulkPrice}
                     />
                   </label>
                   <label className={fieldClass}>
                     Apply stock
                     <Input
                       aria-label="Bulk stock"
+                      className="min-h-11"
                       type="number"
                       min="0"
                       value={bulkStock}
@@ -938,6 +948,7 @@ export function ProductForm({ product }: { product?: ProductDetail }) {
                   </label>
                   <Button
                     type="button"
+                    variant="secondary"
                     className="min-h-11"
                     onClick={() =>
                       setVariants((current) =>
@@ -1004,7 +1015,7 @@ export function ProductForm({ product }: { product?: ProductDetail }) {
                                 ? "variants-error"
                                 : undefined
                             }
-                            className="font-mono text-caption"
+                            className="min-h-11 font-mono text-caption"
                             value={variant.sku}
                             onChange={(event) =>
                               updateVariant(index, "sku", event.target.value)
@@ -1013,7 +1024,7 @@ export function ProductForm({ product }: { product?: ProductDetail }) {
                           />
                         </td>
                         <td className="p-2">
-                          <Input
+                          <MoneyInput
                             aria-label={`Price for variant ${index + 1}`}
                             aria-invalid={!!fieldError("variants")}
                             aria-describedby={
@@ -1021,30 +1032,36 @@ export function ProductForm({ product }: { product?: ProductDetail }) {
                                 ? "variants-error"
                                 : undefined
                             }
-                            inputMode="numeric"
-                            pattern="[0-9]*"
                             value={variant.price}
-                            onChange={(event) =>
-                              updateVariant(index, "price", event.target.value)
+                            onValueChange={(value) =>
+                              updateVariant(index, "price", value)
                             }
                             onBlur={validateVariantsOnBlur}
                           />
                         </td>
                         <td className="p-2">
-                          <Input
+                          <MoneyInput
                             aria-label={`Compare at price for variant ${index + 1}`}
-                            inputMode="numeric"
-                            pattern="[0-9]*"
+                            aria-invalid={compareAtTooLow(variant)}
+                            aria-describedby={
+                              compareAtTooLow(variant)
+                                ? `compare-error-${index}`
+                                : undefined
+                            }
                             value={variant.compareAtPrice ?? ""}
-                            onChange={(event) =>
-                              updateVariant(
-                                index,
-                                "compareAtPrice",
-                                event.target.value,
-                              )
+                            onValueChange={(value) =>
+                              updateVariant(index, "compareAtPrice", value)
                             }
                             onBlur={validateVariantsOnBlur}
                           />
+                          {compareAtTooLow(variant) && (
+                            <p
+                              id={`compare-error-${index}`}
+                              className="mt-1 text-xs text-destructive"
+                            >
+                              Must be above the price.
+                            </p>
+                          )}
                         </td>
                         <td className="p-2">
                           <Input
@@ -1057,6 +1074,7 @@ export function ProductForm({ product }: { product?: ProductDetail }) {
                             }
                             type="number"
                             min="0"
+                            className="min-h-11"
                             value={variant.stock}
                             onChange={(event) =>
                               updateVariant(index, "stock", event.target.value)
@@ -1075,6 +1093,7 @@ export function ProductForm({ product }: { product?: ProductDetail }) {
                             }
                             type="number"
                             min="1"
+                            className="min-h-11"
                             value={variant.weightGrams}
                             onChange={(event) =>
                               updateVariant(
@@ -1092,39 +1111,6 @@ export function ProductForm({ product }: { product?: ProductDetail }) {
                 </table>
               </div>
             </div>
-          </section>
-
-          <section id="pricing" className={sectionClass}>
-            <h2 className="text-lg font-semibold">Pricing summary</h2>
-            <dl className="mt-4 grid gap-3 sm:grid-cols-2">
-              <div>
-                <dt className="text-sm text-muted-foreground">Variant count</dt>
-                <dd className="mt-1 font-medium tabular-nums">
-                  {variants.length}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-sm text-muted-foreground">Price range</dt>
-                <dd className="mt-1 font-medium tabular-nums">
-                  {prices.length ? (
-                    prices.length > 1 &&
-                    prices[0] !== prices[prices.length - 1] ? (
-                      <>
-                        <MoneyText amount={prices[0]} size="small" /> –{" "}
-                        <MoneyText
-                          amount={prices[prices.length - 1]}
-                          size="small"
-                        />
-                      </>
-                    ) : (
-                      <MoneyText amount={prices[0]} size="small" />
-                    )
-                  ) : (
-                    "Set a price for each variant"
-                  )}
-                </dd>
-              </div>
-            </dl>
           </section>
 
           <section id="shipping" className={sectionClass}>
@@ -1145,6 +1131,7 @@ export function ProductForm({ product }: { product?: ProductDetail }) {
                     <Input
                       type="number"
                       min="0"
+                      className="min-h-11"
                       inputMode="decimal"
                       value={dimensions[dimension] || ""}
                       placeholder="e.g. 20…"
@@ -1200,26 +1187,20 @@ export function ProductForm({ product }: { product?: ProductDetail }) {
         </div>
 
         <ProductPreview
-          name={name}
-          description={description}
-          image={images[0]}
-          price={firstPrice}
-          category={
-            selectedCategory
-              ? categoryPath(selectedCategory, categories.data ?? [])
-              : ""
-          }
+          product={preview}
+          hasPrice={isAmount(first?.price)}
           checklist={checklist}
         />
       </div>
 
-      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-background px-4 py-3">
-        <div className="mx-auto flex max-w-screen-2xl flex-wrap items-center justify-between gap-3">
+      <div className="sticky bottom-0 z-20 mt-6 border-t border-border bg-background py-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <Button
               type="button"
-              className="border border-border bg-transparent text-foreground hover:bg-muted"
-              onClick={() => navigate("/seller/products")}
+              variant="secondary"
+              className="min-h-11"
+              onClick={() => requestNavigation("/seller/products")}
             >
               Cancel
             </Button>
@@ -1231,12 +1212,14 @@ export function ProductForm({ product }: { product?: ProductDetail }) {
             <Button
               type="submit"
               disabled={save.isPending || savingForReview}
-              className="border border-border bg-transparent text-foreground hover:bg-muted"
+              variant="secondary"
+              className="min-h-11"
             >
               {save.isPending && !savingForReview ? "Saving…" : "Save draft"}
             </Button>
             <Button
               type="button"
+              className="min-h-11"
               disabled={
                 save.isPending ||
                 submitReview.isPending ||
