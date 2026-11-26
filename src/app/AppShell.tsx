@@ -25,6 +25,9 @@ import { Dialog, DialogContent, DialogTitle } from "../components/ui/dialog";
 import { applyTheme, getTheme, type Theme } from "./theme";
 import { useAuth } from "../features/banking/AuthContext";
 import { adminMarketplaceNav } from "../features/admin-marketplace/routes";
+import { Page } from "../components/layout/Page";
+import { ThemeSwitch } from "../components/layout/ThemeSwitch";
+import { Logo } from "@/components/brand/Logo";
 const breadcrumbLabels: Record<string, string> = {
   customers: "Customers",
   products: "Products",
@@ -170,6 +173,15 @@ export function AppShell() {
       ))}
     </nav>
   );
+  const pageWidth =
+    location.pathname.includes("settings") ||
+    location.pathname.includes("profile")
+      ? "narrow"
+      : /\/(wallets|journals|customers|sellers|orders|payments)\/[^/]+$/.test(
+            location.pathname,
+          )
+        ? "content"
+        : "wide";
   return (
     <div className="min-h-screen md:flex">
       <a
@@ -181,12 +193,21 @@ export function AppShell() {
       <aside
         className={`hidden shrink-0 border-r border-border bg-background p-4 md:block ${collapsed ? "md:w-16 lg:w-16" : "md:w-16 lg:w-60"}`}
       >
-        <div className="mb-6 flex items-center justify-between">
-          <span
-            className={`font-semibold ${collapsed ? "md:hidden" : "md:hidden lg:inline"}`}
-          >
-            Payment Project
-          </span>
+        <div
+          className={`mb-6 flex items-center gap-3 ${collapsed ? "flex-col" : "flex-col lg:flex-row lg:justify-between"}`}
+        >
+          {collapsed ? (
+            <Logo showWordmark={false} />
+          ) : (
+            <>
+              <span className="lg:hidden">
+                <Logo showWordmark={false} />
+              </span>
+              <span className="hidden lg:inline-flex">
+                <Logo />
+              </span>
+            </>
+          )}
           <button
             aria-label="Toggle sidebar"
             className="rounded p-2 hover:bg-muted"
@@ -199,102 +220,93 @@ export function AppShell() {
       </aside>
       <Dialog open={drawer} onOpenChange={setDrawer}>
         <DialogContent className="left-0 top-0 h-full w-64 translate-x-0 translate-y-0 rounded-none">
-          <DialogTitle className="mb-6">Payment Project</DialogTitle>
+          <DialogTitle className="mb-6">
+            <Logo />
+          </DialogTitle>
           {nav}
         </DialogContent>
       </Dialog>
       <div className="min-w-0 flex-1">
-        <header className="flex h-16 items-center gap-3 border-b border-border bg-background px-4 md:px-8">
-          <button
-            className="rounded p-2 md:hidden"
-            aria-label="Open navigation"
-            onClick={() => setDrawer(true)}
-          >
-            <Menu size={20} />
-          </button>
-          <div className="min-w-0 flex-1 truncate text-sm text-muted-foreground">
-            Workspace /{" "}
-            {location.pathname === "/admin"
-              ? "Dashboard"
-              : location.pathname
-                  .split("/")
-                  .filter((part) => part && part !== "admin")
-                  .map((part, index, parts) =>
-                    /^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(part)
-                      ? parts[index - 1] === "wallets"
-                        ? "Wallet detail"
-                        : parts[index - 1] === "journals"
-                          ? "Journal detail"
-                          : "Record detail"
-                      : (breadcrumbLabels[part] ?? part),
-                  )
-                  .join(" / ")}
-          </div>
-          <button
-            onClick={() => setSearch(true)}
-            className="flex items-center gap-2 rounded-md border border-border px-3 py-2 text-sm"
-            aria-label="Search (Control or Command K)"
-          >
-            <Search size={16} />
-            <span className="hidden sm:inline">Search</span>
-            <kbd className="hidden text-xs sm:inline">âŒ˜K</kbd>
-          </button>
-          <label className="sr-only" htmlFor="theme">
-            Theme
-          </label>
-          <SunMoon size={17} />
-          <select
-            id="theme"
-            value={theme}
-            onChange={(e) => {
-              const value = e.target.value as Theme;
-              setTheme(value);
-              applyTheme(value);
-            }}
-            className="max-w-20 bg-transparent text-sm"
-          >
-            <option value="system">System</option>
-            <option value="light">Light</option>
-            <option value="dark">Dark</option>
-          </select>
-          <details className="relative shrink-0">
-            <summary
-              className="flex h-8 w-8 cursor-pointer list-none items-center justify-center rounded-full bg-primary text-xs font-semibold uppercase text-primary-foreground [&::-webkit-details-marker]:hidden"
-              aria-label="User menu"
+        <header className="border-b border-border bg-background">
+          <Page width="wide" className="flex h-16 items-center gap-3">
+            <button
+              className="rounded p-2 md:hidden"
+              aria-label="Open navigation"
+              onClick={() => setDrawer(true)}
             >
-              {user.slice(0, 2)}
-            </summary>
-            <div className="absolute right-0 z-20 mt-2 w-44 rounded-md border border-border bg-card p-1 shadow-lg">
-              <button
-                onClick={() => navigate("/admin/profile")}
-                className="flex w-full gap-2 rounded p-2 text-sm hover:bg-muted"
-              >
-                <UserRound size={16} />
-                Profile
-              </button>
-              <button
-                onClick={() => navigate("/admin/settings")}
-                className="flex w-full gap-2 rounded p-2 text-sm hover:bg-muted"
-              >
-                <Settings size={16} />
-                Settings
-              </button>
-              <button
-                onClick={() => {
-                  void auth
-                    .signOut()
-                    .finally(() => navigate("/admin/login", { replace: true }));
-                }}
-                className="flex w-full gap-2 rounded p-2 text-sm hover:bg-muted"
-              >
-                <LogOut size={16} />
-                Sign out
-              </button>
+              <Menu size={20} />
+            </button>
+            <div className="min-w-0 flex-1 truncate text-sm text-muted-foreground">
+              Workspace /{" "}
+              {location.pathname === "/admin"
+                ? "Dashboard"
+                : location.pathname
+                    .split("/")
+                    .filter((part) => part && part !== "admin")
+                    .map((part, index, parts) =>
+                      /^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(part)
+                        ? parts[index - 1] === "wallets"
+                          ? "Wallet detail"
+                          : parts[index - 1] === "journals"
+                            ? "Journal detail"
+                            : "Record detail"
+                        : (breadcrumbLabels[part] ?? part),
+                    )
+                    .join(" / ")}
             </div>
-          </details>
+            <button
+              onClick={() => setSearch(true)}
+              className="flex items-center gap-2 rounded-md border border-border px-3 py-2 text-sm"
+              aria-label="Search (Control or Command K)"
+            >
+              <Search size={16} />
+              <span className="hidden sm:inline">Search</span>
+              <kbd className="hidden text-xs sm:inline">âŒ˜K</kbd>
+            </button>
+            <ThemeSwitch />
+            <details className="relative shrink-0">
+              <summary
+                className="flex h-8 w-8 cursor-pointer list-none items-center justify-center rounded-full bg-primary text-xs font-semibold uppercase text-primary-foreground [&::-webkit-details-marker]:hidden"
+                aria-label="User menu"
+              >
+                {user.slice(0, 2)}
+              </summary>
+              <div className="absolute right-0 z-20 mt-2 w-44 rounded-md border border-border bg-card p-1 shadow-lg">
+                <button
+                  onClick={() => navigate("/admin/profile")}
+                  className="flex w-full gap-2 rounded p-2 text-sm hover:bg-muted"
+                >
+                  <UserRound size={16} />
+                  Profile
+                </button>
+                <button
+                  onClick={() => navigate("/admin/settings")}
+                  className="flex w-full gap-2 rounded p-2 text-sm hover:bg-muted"
+                >
+                  <Settings size={16} />
+                  Settings
+                </button>
+                <button
+                  onClick={() => {
+                    void auth
+                      .signOut()
+                      .finally(() =>
+                        navigate("/admin/login", { replace: true }),
+                      );
+                  }}
+                  className="flex w-full gap-2 rounded p-2 text-sm hover:bg-muted"
+                >
+                  <LogOut size={16} />
+                  Sign out
+                </button>
+              </div>
+            </details>
+          </Page>
         </header>
-        <main id="main-content" tabIndex={-1} className="w-full p-6 md:p-8">
-          <Outlet />
+        <main id="main-content" tabIndex={-1} className="w-full py-6 md:py-8">
+          <Page width={pageWidth}>
+            <Outlet />
+          </Page>
         </main>
       </div>
       <Dialog open={search} onOpenChange={setSearch}>

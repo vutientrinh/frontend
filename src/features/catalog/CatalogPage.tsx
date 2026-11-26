@@ -13,6 +13,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { api } from "../../api/client";
+import { pageTitle } from "../../config/brand";
 import type { Customer, Product } from "../../api/types";
 import { DataTable } from "../../components/DataTable";
 import {
@@ -43,7 +44,7 @@ export default function CatalogPage({
     q = params.get("q") ?? "",
     sort = params.get("sort") ?? "";
   useEffect(() => {
-    document.title = `${label} | Payment Project`;
+    document.title = pageTitle(label);
   }, [label]);
   const query = useQuery({
     queryKey: [kind, { page, q, sort }],
@@ -274,6 +275,7 @@ export default function CatalogPage({
                 <EmptyState
                   title="No products found"
                   description="Add a product or adjust your search."
+                  illustration="empty-queue"
                   action={<Button onClick={create}>Add product</Button>}
                 />
               ) : (
@@ -347,6 +349,7 @@ export default function CatalogPage({
             <EmptyState
               title={`No ${kind} yet`}
               description={`Create your first ${customer ? "customer" : "product"} to get started.`}
+              illustration="empty-queue"
               action={<Button onClick={create}>Get started</Button>}
             />
           </div>

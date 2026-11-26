@@ -1,4 +1,5 @@
 import { humanLabel } from "../../lib/labels";
+import { pageTitle } from "../../config/brand";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useParams } from "react-router-dom";
@@ -28,7 +29,7 @@ export default function PaymentDetail() {
     client = useQueryClient(),
     [target, setTarget] = useState("");
   useEffect(() => {
-    document.title = "Payment detail | Payment Project";
+    document.title = pageTitle("Payment detail");
   }, []);
   const payment = useQuery({
     queryKey: ["payment", id],
@@ -294,7 +295,7 @@ export default function PaymentDetail() {
             <ErrorState retry={() => void history.refetch()} />
           ) : !history.data?.length ? (
             <div className="mt-4">
-              <EmptyState title="No history yet" />
+              <EmptyState title="No history yet" illustration="empty-queue" />
             </div>
           ) : (
             <ol className="mt-4 space-y-4 border-l border-border pl-4">

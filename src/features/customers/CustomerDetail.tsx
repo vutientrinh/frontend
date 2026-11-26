@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Link, useParams } from "react-router-dom";
 import { ArrowLeft, CreditCard, ShoppingBag, UserRound } from "lucide-react";
 import { api } from "../../api/client";
+import { pageTitle } from "../../config/brand";
 import {
   EmptyState,
   ErrorState,
@@ -14,7 +15,7 @@ import type { Order, Payment } from "../../api/types";
 export default function CustomerDetail() {
   const { id = "" } = useParams();
   useEffect(() => {
-    document.title = "Customer detail | Payment Project";
+    document.title = pageTitle("Customer detail");
   }, []);
   const customer = useQuery({
     queryKey: ["customers", id],
@@ -149,6 +150,7 @@ export default function CustomerDetail() {
                     <EmptyState
                       title={`No ${title.toLowerCase()} yet`}
                       description="Activity will appear here when available."
+                      illustration="empty-queue"
                     />
                   ) : (
                     <ul className="divide-y divide-border">

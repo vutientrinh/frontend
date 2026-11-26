@@ -70,7 +70,7 @@ describe("App", () => {
       await screen.findByRole("heading", { name: "Shop" }, { timeout: 10000 }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("navigation", { name: "Shopper navigation" }),
+      screen.getByRole("navigation", { name: "Your account" }),
     ).toBeInTheDocument();
   });
 
@@ -272,6 +272,10 @@ describe("App", () => {
       await screen.findByRole("status", {}, { timeout: 8000 }),
     ).toHaveTextContent("Transfer sent. Bank reference");
     await user.click(screen.getByRole("link", { name: "Back to wallet" }));
+    // The balance is masked by default (TASK-034); reveal it to read the amount.
+    await user.click(
+      screen.getAllByRole("button", { name: "Show balance" })[0],
+    );
     const balances = screen.getByRole("region", { name: "Wallet balances" });
     expect(within(balances).getAllByText(/1,200,000/)).not.toHaveLength(0);
   });

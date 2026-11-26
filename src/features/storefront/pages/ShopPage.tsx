@@ -1,11 +1,11 @@
-import { Link, useParams, useSearchParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 import { ApiError } from "../../banking/client";
 import { ErrorState } from "../../../components/shared";
 import { useCatalogProducts, useSellerProfile } from "../../commerce/api";
 import { Pager } from "../components/Pager";
 import { ProductGrid } from "../components/ProductGrid";
 import { SellerCard } from "../components/SellerCard";
-import { ProductGridSkeleton } from "../components/States";
+import { ProductGridSkeleton, StoreNotFound } from "../components/States";
 import { type } from "../type";
 
 /** W-14 Seller shop: profile and the seller's live products (page in URL). */
@@ -18,12 +18,10 @@ export default function ShopPage() {
 
   if (profile.isError)
     return profile.error instanceof ApiError && profile.error.status === 404 ? (
-      <div className="py-10">
-        <h1 className={type.h1}>Shop not found</h1>
-        <Link to="/" className="mt-4 inline-block text-primary">
-          Back to the store
-        </Link>
-      </div>
+      <StoreNotFound
+        title="Shop not found"
+        description="The shop may have closed or changed its link."
+      />
     ) : (
       <ErrorState
         message="Could not load this shop."

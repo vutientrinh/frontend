@@ -8,11 +8,11 @@ import {
   DialogTitle,
 } from "../../../components/ui/dialog";
 import { useCatalogProducts, useCategories } from "../../commerce/api";
+import { CategoryBreadcrumb } from "../components/CategoryBreadcrumb";
 import { CategoryStrip } from "../components/CategoryStrip";
 import { FacetPanel } from "../components/FacetPanel";
 import { Pager } from "../components/Pager";
 import { ProductGrid } from "../components/ProductGrid";
-import { SearchBar } from "../components/SearchBar";
 import { NoResults, ProductGridSkeleton } from "../components/States";
 import { activeFacetCount, type Facets } from "../lib";
 import { type } from "../type";
@@ -107,9 +107,16 @@ export default function SearchPage() {
 
   return (
     <div className="space-y-5">
-      <SearchBar key={q} initialQuery={q} />
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
+          {/* Sub-category pages show where they sit; a top level's h1 already says it. */}
+          {slug && current?.parentId && (
+            <CategoryBreadcrumb
+              slug={current.slug}
+              name={current.name}
+              current
+            />
+          )}
           <h1 className={type.h1}>{title}</h1>
           {products.data && (
             <p

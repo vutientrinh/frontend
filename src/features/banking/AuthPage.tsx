@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
+import { AuthSplitLayout } from "../../components/brand/AuthSplitLayout";
 import { Button } from "../../components/ui/button";
 import { request } from "./client";
 import { useAuth } from "./AuthContext";
@@ -46,7 +47,7 @@ export default function AuthPage({
           !from.startsWith("//") &&
           !from.startsWith("/admin")
         ? from
-        : "/wallet";
+        : "/";
   };
   async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -183,139 +184,137 @@ export default function AuthPage({
             ? "Verify your phone"
             : "Reset password";
   return (
-    <main className="mx-auto max-w-md p-6 sm:pt-16">
-      <Link
-        to={seller ? "/seller/login" : staff ? "/admin/login" : "/login"}
-        className="text-sm text-primary"
-      >
-        Payment Project
-      </Link>
-      <h1 className="mt-6 text-2xl font-semibold">{title}</h1>
-      <p className="mt-2 text-sm text-muted-foreground">Demo environment</p>
-      <form onSubmit={submit} className="mt-6 space-y-4">
-        {mode === "login" && (
-          <label className="block text-sm">
-            {staff ? "Staff login" : seller ? "Seller login" : "Phone"}
-            <input
-              required
-              name="login"
-              autoComplete="username"
-              className="mt-1 w-full rounded border border-border bg-background p-3"
-            />
-          </label>
-        )}
-        {(mode === "register" ||
-          (mode === "forgot" && phase === "request")) && (
-          <label className="block text-sm">
-            Phone
-            <input
-              required
-              name="phone"
-              inputMode="tel"
-              autoComplete="tel"
-              className="mt-1 w-full rounded border border-border bg-background p-3"
-            />
-          </label>
-        )}
-        {(mode === "login" ||
-          mode === "register" ||
-          (mode === "forgot" && phase === "reset")) && (
-          <label className="block text-sm">
-            {phase === "reset" ? "New password" : "Password"}
-            <input
-              required
-              minLength={mode === "login" ? 1 : 8}
-              name="password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              autoComplete={
-                mode === "login" ? "current-password" : "new-password"
-              }
-              className="mt-1 w-full rounded border border-border bg-background p-3"
-            />
-            {mode !== "login" && <PasswordStrength value={password} />}
-          </label>
-        )}
-        {(mode === "verify" || (mode === "forgot" && phase === "reset")) &&
-          (challenge ?? state?.challenge) && (
-            <OtpChallenge
-              challenge={challenge ?? state!.challenge!}
-              onChange={(next) => {
-                setChallenge(next);
-                setOtpId(next.otpId);
-                setError("");
-              }}
-              onDemoCodeChange={setDemoCode}
-              code={otpCode}
-              onCodeChange={setOtpCode}
-              onExpired={() => {
-                if (mode === "forgot") {
-                  setPhase("request");
-                  setChallenge(null);
-                  setOtpId("");
-                } else {
-                  navigate(
-                    state?.flow === "register"
-                      ? "/register"
-                      : staff || state?.staff
-                        ? "/admin/login"
-                        : "/login",
-                    { replace: true },
-                  );
-                }
-              }}
-            />
+    <AuthSplitLayout
+      audience={seller ? "seller" : staff || state?.staff ? "staff" : "shopper"}
+    >
+      <div className="mx-auto max-w-[440px]">
+        <h1 className="text-2xl font-semibold">{title}</h1>
+        <p className="mt-2 text-sm text-muted-foreground">Demo environment</p>
+        <form onSubmit={submit} className="mt-6 space-y-4">
+          {mode === "login" && (
+            <label className="block text-sm">
+              {staff ? "Staff login" : seller ? "Seller login" : "Phone"}
+              <input
+                required
+                name="login"
+                autoComplete="username"
+                className="mt-1 w-full rounded border border-border bg-background p-3"
+              />
+            </label>
           )}
-        {(demoCode || state?.demoCode) &&
-          (mode === "verify" || (mode === "forgot" && phase === "reset")) && (
-            <p className="text-sm text-muted-foreground" aria-live="polite">
-              Demo code: {demoCode || state?.demoCode} ·{" "}
-              <Button
-                type="button"
-                className="h-auto bg-transparent p-0 align-baseline text-primary underline"
-                onClick={() => setOtpCode(demoCode || state?.demoCode || "")}
-              >
-                Fill
-              </Button>
+          {(mode === "register" ||
+            (mode === "forgot" && phase === "request")) && (
+            <label className="block text-sm">
+              Phone
+              <input
+                required
+                name="phone"
+                inputMode="tel"
+                autoComplete="tel"
+                className="mt-1 w-full rounded border border-border bg-background p-3"
+              />
+            </label>
+          )}
+          {(mode === "login" ||
+            mode === "register" ||
+            (mode === "forgot" && phase === "reset")) && (
+            <label className="block text-sm">
+              {phase === "reset" ? "New password" : "Password"}
+              <input
+                required
+                minLength={mode === "login" ? 1 : 8}
+                name="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                autoComplete={
+                  mode === "login" ? "current-password" : "new-password"
+                }
+                className="mt-1 w-full rounded border border-border bg-background p-3"
+              />
+              {mode !== "login" && <PasswordStrength value={password} />}
+            </label>
+          )}
+          {(mode === "verify" || (mode === "forgot" && phase === "reset")) &&
+            (challenge ?? state?.challenge) && (
+              <OtpChallenge
+                challenge={challenge ?? state!.challenge!}
+                onChange={(next) => {
+                  setChallenge(next);
+                  setOtpId(next.otpId);
+                  setError("");
+                }}
+                onDemoCodeChange={setDemoCode}
+                code={otpCode}
+                onCodeChange={setOtpCode}
+                onExpired={() => {
+                  if (mode === "forgot") {
+                    setPhase("request");
+                    setChallenge(null);
+                    setOtpId("");
+                  } else {
+                    navigate(
+                      state?.flow === "register"
+                        ? "/register"
+                        : staff || state?.staff
+                          ? "/admin/login"
+                          : "/login",
+                      { replace: true },
+                    );
+                  }
+                }}
+              />
+            )}
+          {(demoCode || state?.demoCode) &&
+            (mode === "verify" || (mode === "forgot" && phase === "reset")) && (
+              <p className="text-sm text-muted-foreground" aria-live="polite">
+                Demo code: {demoCode || state?.demoCode} ·{" "}
+                <Button
+                  type="button"
+                  className="h-auto bg-transparent p-0 align-baseline text-primary underline"
+                  onClick={() => setOtpCode(demoCode || state?.demoCode || "")}
+                >
+                  Fill
+                </Button>
+              </p>
+            )}
+          {mode === "register" && (
+            <label className="flex gap-2 text-sm">
+              <input type="checkbox" required /> I accept the demo terms.
+            </label>
+          )}
+          {error && (
+            <p role="alert" className="text-sm text-destructive">
+              {error}
             </p>
           )}
-        {mode === "register" && (
-          <label className="flex gap-2 text-sm">
-            <input type="checkbox" required /> I accept the demo terms.
-          </label>
+          <Button type="submit" disabled={busy} className="w-full">
+            {busy ? "Please wait…" : title}
+          </Button>
+        </form>
+        {seller && (
+          <Link
+            className="mt-5 inline-block text-sm text-primary"
+            to="/seller/onboarding"
+            state={{ from: "/seller/onboarding" }}
+          >
+            Register as seller
+          </Link>
         )}
-        {error && (
-          <p role="alert" className="text-sm text-destructive">
-            {error}
-          </p>
+        {!staff && !seller && (
+          <div className="mt-5 flex flex-wrap gap-4 text-sm">
+            <Link className="text-primary" to="/login">
+              Sign in
+            </Link>
+            <Link className="text-primary" to="/register">
+              Register
+            </Link>
+            <Link className="text-primary" to="/forgot-password">
+              Forgot password
+            </Link>
+          </div>
         )}
-        <Button type="submit" disabled={busy} className="w-full">
-          {busy ? "Please wait…" : title}
-        </Button>
-      </form>
-      {seller && (
-        <Link
-          className="mt-5 inline-block text-sm text-primary"
-          to="/seller/onboarding"
-          state={{ from: "/seller/onboarding" }}
-        >
-          Register as seller
-        </Link>
-      )}
-      {!staff && !seller && (
-        <div className="mt-5 flex flex-wrap gap-4 text-sm">
-          <Link className="text-primary" to="/login">
-            Sign in
-          </Link>
-          <Link className="text-primary" to="/register">
-            Register
-          </Link>
-          <Link className="text-primary" to="/forgot-password">
-            Forgot password
-          </Link>
-        </div>
-      )}
-    </main>
+      </div>
+    </AuthSplitLayout>
   );
 }

@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import { Button } from "../../components/ui/button";
+import { Illustration } from "../../components/brand/Illustration";
 import { ConfirmDialog, ErrorState, Money } from "../../components/shared";
 import {
   Dialog,
@@ -207,7 +208,7 @@ export default function Account({ verify = false }: { verify?: boolean }) {
 
   if (verify) {
     return (
-      <section className="mx-auto max-w-2xl space-y-5">
+      <section className="space-y-5">
         <header>
           <p className="text-sm font-medium text-primary">
             Account � Verification
@@ -277,7 +278,7 @@ export default function Account({ verify = false }: { verify?: boolean }) {
   const editingAddress = editing ? fullAddress(editing.address) : null;
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6 pb-8">
+    <div className="space-y-6 pb-8">
       <header className="flex flex-wrap items-center gap-4 rounded-2xl border border-border bg-card p-5 sm:p-7">
         <div
           aria-hidden="true"
@@ -493,6 +494,7 @@ export default function Account({ verify = false }: { verify?: boolean }) {
             </div>
           ) : (
             <div className="rounded-xl border border-dashed border-border p-8 text-center">
+              <Illustration name="empty-addresses" size="sm" className="mb-3" />
               <h3 className="font-semibold">No saved addresses</h3>
               <p className="mt-1 text-sm text-muted-foreground">
                 Add a delivery address to speed up checkout.

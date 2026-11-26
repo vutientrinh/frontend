@@ -144,8 +144,12 @@ export function formatRemaining(ms: number) {
 }
 
 /** Product grid: 2 columns at 375px, then as many 176px+ columns as fit (no empty bands). */
+/**
+ * Product grid (DESIGN-PLAN-v2 §4.1): auto-fill, min card 168 px / gap 16 on phones, 200 px / gap 24
+ * from 1024 px; 2…6 columns. `min(…, 50% − gap/2)` keeps two columns on a 320–375 px phone.
+ */
 export const productGridClass =
-  "grid grid-cols-2 gap-3 sm:grid-cols-[repeat(auto-fill,minmax(176px,1fr))] sm:gap-4";
+  "grid grid-cols-[repeat(auto-fill,minmax(min(168px,calc(50%-8px)),1fr))] gap-4 lg:grid-cols-[repeat(auto-fill,minmax(200px,1fr))] lg:gap-6";
 
 /** "6 Nov 2026" in the shopper's locale (orders list and detail headers). */
 export function formatOrderDate(iso: string) {

@@ -219,6 +219,7 @@ export default function ModerationPage() {
                 : "No rejected listings"
             }
             description="New listings appear here when sellers submit them."
+            illustration="empty-queue"
           />
         ) : (
           <div className="grid gap-6 lg:grid-cols-[minmax(240px,1fr)_minmax(0,2fr)]">

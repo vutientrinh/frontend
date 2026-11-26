@@ -23,6 +23,7 @@ export interface DB {
   settings: Record<string, SellerSettings>;
   movements: Record<string, InventoryMovement[]>;
   keys: Record<string, { body: string; result: unknown }>;
+  notificationReadAt: Record<string, string>;
 }
 const uid = () => crypto.randomUUID();
 const categorySeller = [0, 1, 2, 1, 2, 1, 2, 1] as const;
@@ -218,34 +219,76 @@ export function seed(): DB {
     Toys: ["Age range", "Material", "Safety standard"],
     Food: ["Brand", "Ingredients", "Expiry date"],
   };
-  const categories: Category[] = [
-    "Electronics",
-    "Home",
-    "Fashion",
-    "Beauty",
-    "Sports",
-    "Books",
-    "Toys",
-    "Food",
-  ].flatMap((name) => {
-    const id = uid();
-    const slug = name.toLowerCase();
-    const attributes = categoryAttributes[name];
-    return [
-      { id, slug, name, parentId: null, iconName: "Package", attributes },
-      {
-        id: uid(),
-        slug: `${slug}-essentials`,
-        name: `${name} essentials`,
-        parentId: id,
-        iconName: "Package",
-        attributes,
-      },
-    ];
-  });
+  const categoryDefinitions = [
+    {
+      name: "Electronics",
+      iconName: "smartphone",
+      leaves: ["Phones", "Laptops", "Audio", "Wearables", "Accessories"],
+    },
+    {
+      name: "Home",
+      iconName: "house",
+      leaves: ["Furniture", "Kitchen", "Lighting", "Bedding", "Storage"],
+    },
+    {
+      name: "Fashion",
+      iconName: "shirt",
+      leaves: ["Clothing", "Shoes", "Bags", "Jewelry", "Accessories"],
+    },
+    {
+      name: "Beauty",
+      iconName: "sparkles",
+      leaves: ["Skincare", "Makeup", "Hair care", "Fragrance", "Tools"],
+    },
+    {
+      name: "Sports",
+      iconName: "dumbbell",
+      leaves: ["Fitness", "Camping", "Cycling", "Team sports", "Outdoor"],
+    },
+    {
+      name: "Books",
+      iconName: "book",
+      leaves: [
+        "Fiction",
+        "Non-fiction",
+        "Children's books",
+        "Comics",
+        "Learning",
+      ],
+    },
+    {
+      name: "Toys",
+      iconName: "gamepad2",
+      leaves: ["Building toys", "Games", "Dolls", "Outdoor play", "Puzzles"],
+    },
+    {
+      name: "Food",
+      iconName: "shopping-basket",
+      leaves: ["Pantry", "Snacks", "Drinks", "Coffee & tea", "Fresh picks"],
+    },
+  ] as const;
+  const categories: Category[] = categoryDefinitions.flatMap(
+    ({ name, iconName, leaves }) => {
+      const id = uid();
+      const slug = name.toLowerCase();
+      const attributes = categoryAttributes[name];
+      return [
+        { id, slug, name, parentId: null, iconName, attributes },
+        ...leaves.map((leaf) => ({
+          id: uid(),
+          slug: `${slug}-${leaf.toLowerCase().replaceAll(/[^a-z0-9]+/g, "-")}`,
+          name: leaf,
+          parentId: id,
+          iconName: "package",
+          attributes,
+        })),
+      ];
+    },
+  );
   const products: ProductDetail[] = Array.from({ length: 40 }, (_, i) => {
     const categoryIndex = i % 8;
-    const category = categories[categoryIndex * 2];
+    const category = categories[categoryIndex * 6];
+    const leaf = categories[categoryIndex * 6 + 1 + Math.floor(i / 8)];
     const seller = sellers[categorySeller[categoryIndex]];
     const name = `${category.name} item ${i + 1}`;
     const price = String(39000 + i * 640000);
@@ -279,7 +322,7 @@ export function seed(): DB {
         { name: "Style", values: variants.map((v) => v.options.Style) },
       ],
       variants,
-      category: { slug: category.slug, name: category.name },
+      category: { slug: leaf.slug, name: leaf.name },
       status: "LIVE",
       specs: specsFor(category.slug),
       reviews: seededReviews(i),
@@ -516,17 +559,61 @@ export function seed(): DB {
     ),
     movements: {},
     keys: {},
+    notificationReadAt: {},
   };
 }
 const key = "payment-commerce-db-v4";
 const legacyKey = "payment-commerce-db-v3";
 let memory: DB | undefined;
+function migrateSeededCategories(db: DB): boolean {
+  let changed = false;
+  if (db.categories.some((category) => / essentials$/i.test(category.name))) {
+    const previousCategories = db.categories;
+    const categories = seed().categories;
+    const leavesByRoot = new Map<string, Category[]>();
+    for (const category of categories) {
+      if (!category.parentId) continue;
+      const parent = categories.find((item) => item.id === category.parentId);
+      if (!parent) continue;
+      const leaves = leavesByRoot.get(parent.slug) ?? [];
+      leaves.push(category);
+      leavesByRoot.set(parent.slug, leaves);
+    }
+    const assignedByRoot = new Map<string, number>();
+    for (const product of db.products) {
+      const category = previousCategories.find(
+        (item) => item.slug === product.category.slug,
+      );
+      const root = category?.parentId
+        ? previousCategories.find((item) => item.id === category.parentId)
+        : category;
+      const leaves = root ? leavesByRoot.get(root.slug) : undefined;
+      if (!root || !leaves?.length) continue;
+      const assigned = assignedByRoot.get(root.slug) ?? 0;
+      const leaf = leaves[assigned % leaves.length];
+      product.category = { slug: leaf.slug, name: leaf.name };
+      assignedByRoot.set(root.slug, assigned + 1);
+    }
+    db.categories = categories;
+    changed = true;
+  }
+  if (!db.notificationReadAt) {
+    db.notificationReadAt = {};
+    changed = true;
+  }
+  return changed;
+}
 export function getDB(): DB {
   if (memory) return memory;
   try {
     localStorage.removeItem(legacyKey);
     const value = localStorage.getItem(key);
-    if (value) return (memory = JSON.parse(value) as DB);
+    if (value) {
+      memory = JSON.parse(value) as DB;
+      if (migrateSeededCategories(memory))
+        localStorage.setItem(key, JSON.stringify(memory));
+      return memory;
+    }
     memory = seed();
     localStorage.setItem(key, JSON.stringify(memory));
     return memory;

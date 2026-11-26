@@ -62,6 +62,16 @@ export function generateVariantMatrix(
   });
 }
 
+/** A compare-at (list) price only makes sense above the selling price. */
+export function compareAtTooLow({ price, compareAtPrice }: ProductVariant) {
+  return (
+    !!compareAtPrice &&
+    /^\d+$/.test(compareAtPrice) &&
+    /^\d+$/.test(price) &&
+    BigInt(compareAtPrice) <= BigInt(price)
+  );
+}
+
 export function validateProductDraft(
   draft: ProductDraft,
   forReview = false,
@@ -102,6 +112,8 @@ export function validateProductDraft(
   ) {
     errors.variants =
       "Each variant needs a SKU, a whole-number price, non-negative stock, and a weight above zero.";
+  } else if (draft.variants.some(compareAtTooLow)) {
+    errors.variants = "Each compare-at price must be higher than the price.";
   }
   return errors;
 }

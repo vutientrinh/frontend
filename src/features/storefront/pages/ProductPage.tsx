@@ -10,6 +10,7 @@ import {
   useProduct,
 } from "../../commerce/api";
 import type { ProductDetail } from "../../commerce/types";
+import { CategoryBreadcrumb } from "../components/CategoryBreadcrumb";
 import { DealsCarousel } from "../components/DealsCarousel";
 import { ImageGallery } from "../components/ImageGallery";
 import { PriceTag } from "../components/PriceTag";
@@ -17,6 +18,7 @@ import { ProductReviews } from "../components/ProductReviews";
 import { QuantityStepper } from "../components/QuantityStepper";
 import { RatingStars } from "../components/RatingStars";
 import { SellerCard } from "../components/SellerCard";
+import { StoreNotFound } from "../components/States";
 import { VariantPicker } from "../components/VariantPicker";
 import { addedToCartToast, errorMessage, useSignInRedirect } from "../hooks";
 import { findVariant, formatCount, type VariantSelection } from "../lib";
@@ -30,15 +32,10 @@ export default function ProductPage() {
   if (product.isError) {
     if (product.error instanceof ApiError && product.error.status === 404)
       return (
-        <div className="py-10">
-          <h1 className={type.h1}>Product not found</h1>
-          <p className="mt-2 text-muted-foreground">
-            It may have been removed or hidden by the seller.
-          </p>
-          <Link to="/" className="mt-4 inline-block text-primary">
-            Back to the store
-          </Link>
-        </div>
+        <StoreNotFound
+          title="Product not found"
+          description="It may have been removed or hidden by the seller."
+        />
       );
     return (
       <ErrorState
@@ -97,15 +94,10 @@ function ProductView({ product }: { product: ProductDetail }) {
 
   return (
     <article className="space-y-8 pb-20 md:pb-0">
-      <nav aria-label="Breadcrumb" className="text-sm text-muted-foreground">
-        <Link to="/" className="hover:underline">
-          Shop
-        </Link>{" "}
-        /{" "}
-        <Link to={`/c/${product.category.slug}`} className="hover:underline">
-          {product.category.name}
-        </Link>
-      </nav>
+      <CategoryBreadcrumb
+        slug={product.category.slug}
+        name={product.category.name}
+      />
       <div className="grid gap-8 lg:grid-cols-12 lg:items-start xl:gap-10">
         <div className="mx-auto w-full max-w-[560px] lg:col-span-7 lg:mx-0 lg:max-w-none">
           <ImageGallery
@@ -175,7 +167,7 @@ function ProductView({ product }: { product: ProductDetail }) {
             </div>
           )}
           <ShippingLine product={product} />
-          <div className="fixed inset-x-0 bottom-[calc(64px+env(safe-area-inset-bottom))] z-10 flex gap-2 border-t border-border bg-background p-3 md:static md:border-0 md:p-0">
+          <div className="fixed inset-x-0 bottom-[calc(var(--tabbar-h,0px)+env(safe-area-inset-bottom))] z-10 flex gap-2 border-t border-border bg-background p-3 md:static md:border-0 md:p-0">
             <button
               type="button"
               disabled={!canAdd}

@@ -71,6 +71,57 @@ describe("commerce catalog detail data", () => {
     expect((await call("/cart", "oldToken")).status).toBe(200);
   });
 
+  it("migrates persisted placeholder categories without resetting commerce data", () => {
+    const persisted = seed();
+    const roots = persisted.categories.filter(
+      (category) => category.parentId === null,
+    );
+    const oldCategories = roots.flatMap((root) => [
+      { ...root, iconName: "Package" },
+      {
+        id: `old-${root.id}`,
+        slug: `${root.slug}-essentials`,
+        name: `${root.name} essentials`,
+        parentId: root.id,
+        iconName: "Package",
+        attributes: root.attributes,
+      },
+    ]);
+    for (const product of persisted.products) {
+      const leaf = persisted.categories.find(
+        (category) => category.slug === product.category.slug,
+      )!;
+      const parent = persisted.categories.find(
+        (category) => category.id === leaf.parentId,
+      )!;
+      product.category = { slug: parent.slug, name: parent.name };
+    }
+    persisted.categories = oldCategories;
+    delete (persisted as Partial<typeof persisted>).notificationReadAt;
+    const previousOrderCount = persisted.orders.length;
+    localStorage.setItem("payment-commerce-db-v4", JSON.stringify(persisted));
+    reloadCommerceDB();
+
+    const migrated = getDB();
+    expect(
+      migrated.categories.some((category) =>
+        / essentials$/i.test(category.name),
+      ),
+    ).toBe(false);
+    expect(migrated.categories).toHaveLength(48);
+    expect(migrated.products).toHaveLength(persisted.products.length);
+    expect(migrated.orders).toHaveLength(previousOrderCount);
+    expect(migrated.notificationReadAt).toEqual({});
+    expect(
+      migrated.products.every((product) =>
+        migrated.categories.some(
+          (category) =>
+            category.slug === product.category.slug && category.parentId,
+        ),
+      ),
+    ).toBe(true);
+  });
+
   it("includes optional variant counts in home, search, and seller catalog results", async () => {
     const home = (await (await call("/catalog/home")).json()) as CatalogHome;
     const homeProducts = [...home.deals, ...home.recommended];
@@ -117,11 +168,18 @@ describe("commerce catalog detail data", () => {
   });
 
   it("keeps seeded product categories aligned with each seller's assortment", () => {
-    const products = getDB().products;
+    const db = getDB();
+    const products = db.products;
     const sellerCategories = new Map<string, Set<string>>();
     for (const product of products) {
       const categories = sellerCategories.get(product.seller.slug) ?? new Set();
-      categories.add(product.category.slug);
+      const leaf = db.categories.find(
+        (category) => category.slug === product.category.slug,
+      );
+      const parent = db.categories.find(
+        (category) => category.id === leaf?.parentId,
+      );
+      categories.add(parent?.slug ?? product.category.slug);
       sellerCategories.set(product.seller.slug, categories);
     }
 
@@ -139,6 +197,75 @@ describe("commerce catalog detail data", () => {
       "sports",
       "toys",
     ]);
+  });
+
+  it("seeds a populated two-level category tree with distinct top-level icons", () => {
+    const db = seed();
+    const roots = db.categories.filter(
+      (category) => category.parentId === null,
+    );
+    expect(roots).toHaveLength(8);
+    expect(new Set(roots.map((category) => category.iconName)).size).toBe(8);
+    expect(
+      db.categories.some((category) => category.name.endsWith("essentials")),
+    ).toBe(false);
+
+    for (const root of roots) {
+      const leaves = db.categories.filter(
+        (category) => category.parentId === root.id,
+      );
+      expect(leaves).toHaveLength(5);
+      for (const leaf of leaves) {
+        expect(
+          db.products.some(
+            (product) =>
+              product.status === "LIVE" && product.category.slug === leaf.slug,
+          ),
+        ).toBe(true);
+      }
+    }
+  });
+
+  it("returns LIVE counts for leaves and parents, and parent filters include child products", async () => {
+    const categoryResponse = await call("/catalog/categories");
+    expect(categoryResponse.status).toBe(200);
+    const categories = (await categoryResponse.json()) as {
+      id: string;
+      slug: string;
+      parentId: string | null;
+      productCount: number;
+    }[];
+    const roots = categories.filter((category) => category.parentId === null);
+    for (const category of categories) {
+      const expected = getDB().products.filter(
+        (product) =>
+          product.status === "LIVE" &&
+          (product.category.slug === category.slug ||
+            (category.parentId === null &&
+              categories.some(
+                (child) =>
+                  child.parentId === category.id &&
+                  child.slug === product.category.slug,
+              ))),
+      ).length;
+      expect(category.productCount).toBe(expected);
+    }
+    const electronics = roots.find(
+      (category) => category.slug === "electronics",
+    )!;
+    const productResponse = await call(
+      `/catalog/products?category=${electronics.slug}&size=100`,
+    );
+    const result = (await productResponse.json()) as {
+      totalElements: number;
+      content: { category: { slug: string } }[];
+    };
+    expect(result.totalElements).toBe(electronics.productCount);
+    expect(
+      result.content.every(
+        (product) => product.category.slug !== "electronics",
+      ),
+    ).toBe(true);
   });
 
   it("spreads seeded order and shipment timestamps across the order lifecycle", () => {

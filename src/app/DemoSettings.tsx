@@ -9,6 +9,7 @@ import { applyTheme, getTheme, type Theme } from "./theme";
 import { useOptionalAuth } from "../features/banking/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { BankingSettingsPanel } from "../features/banking/AdminBanking";
+import { pageTitle } from "../config/brand";
 const selectClass =
   "w-full rounded-md border border-border bg-background px-3 py-2 text-sm";
 export default function DemoSettings() {
@@ -30,7 +31,7 @@ export default function DemoSettings() {
       () => localStorage.getItem("payment-locale") ?? "en-US",
     );
   useEffect(() => {
-    document.title = "Settings | Payment Project";
+    document.title = pageTitle("Settings");
   }, []);
   useEffect(() => {
     const update = () => setTheme(getTheme());
@@ -49,7 +50,7 @@ export default function DemoSettings() {
         title="Settings"
         description="Manage your demo workspace and preferences."
       />
-      <div className="grid max-w-5xl gap-6">
+      <div className="grid gap-6">
         <section className="border-t border-border bg-background p-6">
           <div className="mb-5 flex gap-3">
             <span className="rounded-lg bg-muted p-2 text-primary">

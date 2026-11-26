@@ -88,6 +88,9 @@
   --radius-lg: 14px;
   --elevation-1: 0 4px 16px oklch(0.235 0.02 215 / 0.1);
   --elevation-2: 0 12px 32px oklch(0.235 0.02 215 / 0.16);
+  /* DESIGN.md §8: hero, auth brand panel, onboarding only. primary -> oklch(.54 .10 212);
+     text on it = --primary-foreground (≥ 4.7:1 at every stop). */
+  --brand-gradient: linear-gradient(135deg, #006967 0%, #007d90 100%);
 }
 
 .dark {
@@ -113,6 +116,8 @@
   --status-cancelled: var(--muted-foreground);
   --elevation-1: none;
   --elevation-2: none;
+  /* primary -> oklch(.86 .08 208); text = --primary-foreground (≥ 9:1). */
+  --brand-gradient: linear-gradient(135deg, #5dc9c0 0%, #90e0ec 100%);
 }
 
 body {
@@ -121,6 +126,24 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-variant-numeric: tabular-nums;
+}
+
+.page-container {
+  width: calc(100% - var(--page-gutter) - var(--page-gutter));
+  max-width: var(--page-max, 1440px);
+  margin-inline: auto;
+}
+.page-width-full {
+  max-width: none;
+}
+.page-width-wide {
+  --page-max: 1440px;
+}
+.page-width-content {
+  --page-max: 1200px;
+}
+.page-width-narrow {
+  --page-max: 720px;
 }
 
 :focus-visible {

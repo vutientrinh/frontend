@@ -105,6 +105,7 @@ function NoRows({ title, clear }: { title: string; clear?: () => void }) {
     <EmptyState
       title={title}
       description="Try another filter or clear the current search."
+      illustration="empty-queue"
       action={
         clear ? (
           <Button className="mt-3" onClick={clear}>

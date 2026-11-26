@@ -1,55 +1,7 @@
-import {
-  Baby,
-  Book,
-  Car,
-  Dumbbell,
-  Gamepad2,
-  Gem,
-  House,
-  Laptop,
-  Shirt,
-  ShoppingBasket,
-  Smartphone,
-  Sparkles,
-  Tag,
-  Tent,
-  type LucideIcon,
-} from "lucide-react";
 import { NavLink } from "react-router-dom";
 import type { Category } from "../../commerce/types";
 import { scrollStripClass } from "../lib";
-
-// Small explicit map keeps the bundle small (importing all lucide icons would not).
-const ICONS: Record<string, LucideIcon> = {
-  baby: Baby,
-  book: Book,
-  books: Book,
-  car: Car,
-  dumbbell: Dumbbell,
-  sports: Dumbbell,
-  gamepad: Gamepad2,
-  gamepad2: Gamepad2,
-  gem: Gem,
-  jewelry: Gem,
-  home: House,
-  house: House,
-  laptop: Laptop,
-  computer: Laptop,
-  shirt: Shirt,
-  fashion: Shirt,
-  grocery: ShoppingBasket,
-  "shopping-basket": ShoppingBasket,
-  smartphone: Smartphone,
-  phone: Smartphone,
-  sparkles: Sparkles,
-  beauty: Sparkles,
-  tent: Tent,
-  outdoor: Tent,
-};
-
-function categoryIcon(iconName: string): LucideIcon {
-  return ICONS[iconName.toLowerCase()] ?? Tag;
-}
+import { categoryIcon } from "./category-menu/categoryIcon";
 
 /** Horizontally scrolling list of top-level categories (or the given level). */
 export function CategoryStrip({

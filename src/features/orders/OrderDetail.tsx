@@ -8,6 +8,7 @@ import {
   useSearchParams,
 } from "react-router-dom";
 import { api } from "../../api/client";
+import { pageTitle } from "../../config/brand";
 import {
   ConfirmDialog,
   EmptyState,
@@ -27,7 +28,7 @@ export default function OrderDetail() {
     [params] = useSearchParams(),
     [confirm, setConfirm] = useState(false);
   useEffect(() => {
-    document.title = "Order detail | Payment Project";
+    document.title = pageTitle("Order detail");
   }, []);
   const order = useQuery({
     queryKey: ["order", id],
@@ -122,7 +123,7 @@ export default function OrderDetail() {
             <StatusBadge status={o.status} />
           </div>
           {o.items.length === 0 ? (
-            <EmptyState title="No items" />
+            <EmptyState title="No items" illustration="empty-queue" />
           ) : (
             <ul className="mt-4 divide-y divide-border">
               {o.items.map((i, index) => (

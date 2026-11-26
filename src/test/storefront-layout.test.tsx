@@ -175,7 +175,7 @@ describe("W-16 checkout (TASK-025 C1, C2)", () => {
 });
 
 describe("W-17 payment (TASK-025 C6)", () => {
-  it("leads with a status hero and puts amount and reference side by side with copy buttons", async () => {
+  async function placeVietQrOrder(idempotencyKey: string) {
     await cartWithOneLine();
     const address = await call<Address>("/me/addresses", {
       body: { recipient: "An", phone: "0900000001", address: "1 Le Loi" },
@@ -184,7 +184,7 @@ describe("W-17 payment (TASK-025 C6)", () => {
       groups: { seller: { id: string }; items: { id: string }[] }[];
     }>("/cart");
     const result = await call<CheckoutResult>("/checkout", {
-      headers: { "Idempotency-Key": "task-025-payment-hero" },
+      headers: { "Idempotency-Key": idempotencyKey },
       body: {
         cartItemIds: cart.groups.flatMap((g) => g.items.map((i) => i.id)),
         addressId: address.id,
@@ -194,6 +194,11 @@ describe("W-17 payment (TASK-025 C6)", () => {
         paymentMethod: "VIETQR",
       },
     });
+    return result;
+  }
+
+  it("leads with a status hero and puts amount and reference side by side with copy buttons", async () => {
+    const result = await placeVietQrOrder("task-025-payment-hero");
     mount(`/pay/${result.paymentIntent.id}`);
     expect(
       await screen.findByRole("heading", { name: "Pay with VietQR" }, LOAD),
@@ -210,5 +215,30 @@ describe("W-17 payment (TASK-025 C6)", () => {
       screen.getAllByLabelText(formatMoney(result.paymentIntent.amount, "VND"))
         .length,
     ).toBeGreaterThanOrEqual(2);
+  });
+
+  it("shows the success-payment scene once the payment succeeded (TASK-028 F4 S3)", async () => {
+    const result = await placeVietQrOrder("task-028-payment-success");
+    const intent = getDB().intents.find(
+      (i) => i.id === result.paymentIntent.id,
+    )!;
+    intent.status = "SUCCEEDED";
+    saveDB();
+    // Opened from a link (no checkout state), so the page stays on the receipt.
+    mount(`/pay/${intent.id}`);
+    expect(
+      await screen.findByRole(
+        "heading",
+        { level: 1, name: "Payment received" },
+        LOAD,
+      ),
+    ).toBeInTheDocument();
+    const scene = document.querySelector(
+      '[data-illustration="success-payment"]',
+    );
+    expect(scene?.closest("section")).toHaveAttribute("role", "status");
+    expect(
+      screen.getByRole("link", { name: "View my orders" }),
+    ).toBeInTheDocument();
   });
 });

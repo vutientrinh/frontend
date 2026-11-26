@@ -2,13 +2,43 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { createMemoryRouter, RouterProvider } from "react-router-dom";
+import {
+  createMemoryRouter,
+  Link,
+  MemoryRouter,
+  Route,
+  Routes,
+  RouterProvider,
+} from "react-router-dom";
 import { server } from "../setup";
 import { commerceHandlers } from "../../mocks/commerce";
 import { getDB, resetCommerceDB } from "../../mocks/commerce/db";
 import { SELLER_USER_IDS } from "../../mocks/commerce/seed";
 import { setSession } from "../../features/banking/client";
 import { sellerRoutes } from "../../features/seller";
+import { ProductForm } from "../../features/seller/ProductForm";
+vi.mock("../../features/banking/AuthContext", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("../../features/banking/AuthContext")>();
+  return {
+    ...actual,
+    useAuth: () => ({
+      user: {
+        id: "seller",
+        phone: "seller",
+        email: "",
+        fullName: "Seller",
+        roles: ["SELLER_OWNER"],
+        kycTier: 0,
+        status: "ACTIVE",
+      },
+      loading: false,
+      signIn: vi.fn(),
+      signOut: vi.fn(async () => {}),
+      setUser: vi.fn(),
+    }),
+  };
+});
 function renderRoute(path: string) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
@@ -18,6 +48,22 @@ function renderRoute(path: string) {
       <RouterProvider
         router={createMemoryRouter(sellerRoutes, { initialEntries: [path] })}
       />
+    </QueryClientProvider>,
+  );
+}
+function renderProductFormInBrowserRouterShape() {
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+  });
+  return render(
+    <QueryClientProvider client={client}>
+      <MemoryRouter initialEntries={["/seller/products/new"]}>
+        <Routes>
+          <Route path="/seller/products/new" element={<ProductForm />} />
+          <Route path="/seller/products" element={<h1>Products</h1>} />
+        </Routes>
+        <Link to="/seller/products">Products link</Link>
+      </MemoryRouter>
     </QueryClientProvider>,
   );
 }
@@ -58,24 +104,30 @@ beforeEach(() => {
 describe("seller routes", () => {
   it("shows seller performance metrics on the dashboard", async () => {
     renderRoute("/seller");
-    expect(await screen.findByText("Cancellation rate")).toBeInTheDocument();
+    expect(
+      await screen.findByText("Cancellation rate", {}, { timeout: 3000 }),
+    ).toBeInTheDocument();
     expect(screen.getByText("Late shipment rate")).toBeInTheDocument();
   });
 
   it("saves settings through the actual submit button", async () => {
     const user = userEvent.setup();
     renderRoute("/seller/settings");
-    const name = await screen.findByLabelText("Shop name");
+    const name = await screen.findByLabelText(
+      /Shop name/,
+      {},
+      { timeout: 3000 },
+    );
     await user.clear(name);
     await user.type(name, "Updated shop");
     await user.type(screen.getByLabelText(/Description/), "A small shop");
-    await user.type(screen.getByLabelText("Contact phone"), "0900000001");
+    await user.type(screen.getByLabelText(/Contact phone/), "0900000001");
     await user.type(
-      screen.getByLabelText("Contact email"),
+      screen.getByLabelText(/Contact email/),
       "seller@example.com",
     );
     await user.click(screen.getByRole("button", { name: "Save settings" }));
-    expect(await screen.findByText("Settings saved.")).toBeInTheDocument();
+    expect(await screen.findByText("All changes saved")).toBeInTheDocument();
     expect(getDB().settings[getDB().sellers[0].id].shopName).toBe(
       "Updated shop",
     );
@@ -84,11 +136,11 @@ describe("seller routes", () => {
     const user = userEvent.setup();
     renderRoute("/seller/inventory");
     const buttons = await screen.findAllByRole("button", {
-      name: "Adjust / movements",
+      name: /Adjust stock for/,
     });
     await user.click(buttons[0]);
-    await user.type(screen.getByLabelText("Change in units"), "2");
-    await user.type(screen.getByLabelText("Reason"), "Stocktake");
+    await user.type(screen.getByLabelText(/Change in units/), "2");
+    await user.type(screen.getByLabelText(/Reason/), "Stocktake");
     await user.click(screen.getByRole("button", { name: "Save adjustment" }));
     await waitFor(() =>
       expect(screen.getByText(/Stocktake/)).toBeInTheDocument(),
@@ -98,10 +150,10 @@ describe("seller routes", () => {
     const user = userEvent.setup();
     renderRoute("/seller/inventory");
     await user.click(
-      (await screen.findAllByRole("button", { name: "Adjust / movements" }))[0],
+      (await screen.findAllByRole("button", { name: /Adjust stock for/ }))[0],
     );
-    await user.type(screen.getByLabelText("Change in units"), "-999999");
-    await user.type(screen.getByLabelText("Reason"), "Invalid count");
+    await user.type(screen.getByLabelText(/Change in units/), "-999999");
+    await user.type(screen.getByLabelText(/Reason/), "Invalid count");
     await user.click(screen.getByRole("button", { name: "Save adjustment" }));
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "Invalid adjustment",
@@ -113,8 +165,13 @@ describe("seller routes", () => {
       (o) => o.seller.id === getDB().sellers[0].id && o.status === "PAID",
     )!;
     renderRoute(`/seller/orders/${order.id}`);
+    // The first render waits for the lazy route chunk, which is slow under load.
     await user.click(
-      await screen.findByRole("button", { name: "Confirm order" }),
+      await screen.findByRole(
+        "button",
+        { name: "Confirm order" },
+        { timeout: 3000 },
+      ),
     );
     await waitFor(() =>
       expect(getDB().orders.find((o) => o.id === order.id)?.status).toBe(
@@ -149,27 +206,25 @@ describe("seller routes", () => {
   });
   it("rejects a paid order with a reason from the queue", async () => {
     const user = userEvent.setup();
-    const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
     const order = getDB().orders.find(
       (o) => o.seller.id === getDB().sellers[0].id && o.status === "PAID",
     )!;
     renderRoute("/seller/orders?status=TO_CONFIRM");
     await user.click(
       await screen.findByRole("button", {
-        name: `Reject ${order.orderNumber}`,
+        name: `More actions for ${order.orderNumber}`,
       }),
     );
-    await user.type(screen.getByLabelText("Rejection reason"), "Out of stock");
-    await user.click(screen.getByRole("button", { name: "Reject order" }));
+    await user.click(screen.getByRole("menuitem", { name: "Reject order" }));
+    const confirm = await screen.findByRole("button", { name: "Reject order" });
+    expect(confirm).toBeDisabled();
+    await user.type(screen.getByLabelText(/Rejection reason/), "Out of stock");
+    await user.click(confirm);
     await waitFor(() =>
       expect(
         getDB().orders.find((candidate) => candidate.id === order.id)?.status,
       ).toBe("CANCELLED"),
     );
-    expect(confirm).toHaveBeenCalledWith(
-      `Reject ${order.orderNumber}? The order will be cancelled and refunded.`,
-    );
-    confirm.mockRestore();
   });
   it("creates a product with a variant through the form", async () => {
     const user = userEvent.setup();
@@ -311,17 +366,22 @@ describe("seller routes", () => {
   });
   it("asks before discarding unsaved product changes", async () => {
     const user = userEvent.setup();
-    renderRoute("/seller/products/new");
+    renderProductFormInBrowserRouterShape();
     await user.type(
       await screen.findByLabelText(/Product name/),
       "Unsaved item",
     );
     await user.click(screen.getByRole("button", { name: "Cancel" }));
-    expect(await screen.findByRole("alert")).toHaveTextContent(
+    expect(await screen.findByRole("dialog")).toHaveTextContent(
       "Leave and discard them?",
     );
     expect(screen.getByLabelText(/Product name/)).toHaveValue("Unsaved item");
-    await user.click(screen.getByRole("button", { name: "Keep editing" }));
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    await user.click(screen.getByRole("link", { name: "Products link" }));
+    expect(await screen.findByRole("dialog")).toHaveTextContent(
+      "Leave and discard them?",
+    );
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
     await user.click(screen.getByRole("button", { name: "Cancel" }));
     await user.click(
       screen.getByRole("button", { name: "Leave without saving" }),
@@ -359,19 +419,19 @@ describe("seller routes", () => {
       }),
     );
     renderRoute("/seller/onboarding");
-    await user.type(await screen.findByLabelText("Shop name"), "New Shop");
-    await user.type(screen.getByLabelText("Shop URL"), "new-shop");
+    await user.type(await screen.findByLabelText(/Shop name/), "New Shop");
+    await user.type(screen.getByLabelText(/Shop URL/), "new-shop");
     await user.type(screen.getByLabelText(/Description/), "Shop description");
-    await user.type(screen.getByLabelText("Location"), "Hanoi");
-    await user.type(screen.getByLabelText("Contact phone"), "0900000001");
-    await user.type(screen.getByLabelText("Contact email"), "shop@example.com");
+    await user.type(screen.getByLabelText(/Location/), "Hanoi");
+    await user.type(screen.getByLabelText(/Contact phone/), "0900000001");
+    await user.type(screen.getByLabelText(/Contact email/), "shop@example.com");
     await user.click(screen.getByRole("button", { name: "Save and continue" }));
     await waitFor(() =>
       expect(
         getDB().onboarding[getDB().sellers[3].id].steps.shop?.shopName,
       ).toBe("New Shop"),
     );
-    expect(await screen.findByLabelText("Owner full name")).toBeInTheDocument();
+    expect(await screen.findByLabelText(/Owner full name/)).toBeInTheDocument();
   });
   it("shows the onboarding review status after submission", async () => {
     const sellerId = getDB().sellers[0].id;
@@ -383,5 +443,83 @@ describe("seller routes", () => {
     expect(
       screen.getByRole("link", { name: "Seller onboarding" }),
     ).toBeInTheDocument();
+  });
+
+  it("marks the selected order queue and counts every queue from one request", async () => {
+    const mine = getDB().orders.filter(
+      (o) => o.seller.id === getDB().sellers[0].id,
+    );
+    const packing = mine.filter((o) => o.status === "CONFIRMED").length;
+    renderRoute("/seller/orders?status=TO_PACK");
+    const tab = await screen.findByRole("link", {
+      name: `To pack (${packing} ${packing === 1 ? "order" : "orders"})`,
+    });
+    expect(tab).toHaveAttribute("aria-current", "page");
+    expect(
+      screen.queryByRole("button", { name: /Confirm selected/ }),
+    ).not.toBeInTheDocument();
+  });
+  it("hides a live product only after the confirmation dialog", async () => {
+    const user = userEvent.setup();
+    const product = getDB().products.find(
+      (p) => p.seller.id === getDB().sellers[0].id && p.status === "LIVE",
+    )!;
+    const status = () =>
+      getDB().products.find((p) => p.id === product.id)?.status;
+    renderRoute("/seller/products");
+    await user.click(
+      await screen.findByRole("button", {
+        name: `More actions for ${product.name}`,
+      }),
+    );
+    await user.click(screen.getByRole("menuitem", { name: "Hide" }));
+    expect(await screen.findByRole("dialog")).toHaveTextContent(
+      "Shoppers will no longer see it.",
+    );
+    expect(status()).toBe("LIVE");
+    await user.click(screen.getByRole("button", { name: "Hide product" }));
+    await waitFor(() => expect(status()).toBe("HIDDEN"));
+  });
+  it("lists only variants with five or fewer units under Low stock", async () => {
+    const products = getDB().products.filter(
+      (p) => p.seller.id === getDB().sellers[0].id,
+    );
+    const [atLimit, above] = products.flatMap((p) => p.variants).slice(1);
+    atLimit.stock = 5;
+    above.stock = 6;
+    renderRoute("/seller/inventory?lowStock=true");
+    expect(
+      await screen.findByRole("button", {
+        name: `Adjust stock for ${atLimit.sku}`,
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: `Adjust stock for ${above.sku}` }),
+    ).not.toBeInTheDocument();
+  });
+  it("formats money inputs and rejects a compare-at price below the price", async () => {
+    const user = userEvent.setup();
+    renderRoute("/seller/products/new");
+    const price = await screen.findByLabelText("Price for variant 1");
+    await user.type(price, "5159000");
+    expect(price).toHaveValue("5,159,000");
+    const compareAt = screen.getByLabelText("Compare at price for variant 1");
+    await user.type(compareAt, "5000000");
+    expect(compareAt).toHaveAttribute("aria-invalid", "true");
+    expect(screen.getByText("Must be above the price.")).toBeInTheDocument();
+  });
+  it("asks before leaving settings with unsaved changes", async () => {
+    const user = userEvent.setup();
+    renderRoute("/seller/settings");
+    await user.type(await screen.findByLabelText(/Shop name/), " 2");
+    expect(screen.getByText("Unsaved changes")).toBeInTheDocument();
+    await user.click(screen.getByRole("link", { name: "Orders" }));
+    expect(await screen.findByRole("dialog")).toHaveTextContent(
+      "Discard unsaved changes?",
+    );
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(screen.getByLabelText(/Shop name/)).toHaveValue(
+      `${getDB().settings[getDB().sellers[0].id].shopName} 2`,
+    );
   });
 });

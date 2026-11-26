@@ -1,0 +1,82 @@
+/*
+ * Categories menu motion (TASK-034, BA spec §4.4; DESIGN.md §5). CSS animations on `data-state` until Motion for
+ * React lands (TASK-030). Radix Presence waits for `animationend`, so exit animations play before unmount.
+ * Token names are read with fallbacks so a later global token set takes over without edits here.
+ */
+.jw-cat-panel[data-state="open"] {
+  animation: jw-cat-rise-in var(--motion-base, 200ms)
+    var(--ease-standard, cubic-bezier(0.2, 0, 0, 1)) both;
+}
+.jw-cat-panel[data-state="closed"] {
+  animation: jw-cat-fade-out var(--motion-fast, 120ms)
+    var(--ease-exit, cubic-bezier(0.3, 0, 1, 1)) both;
+}
+.jw-cat-scrim[data-state="open"] {
+  animation: jw-cat-fade-in var(--motion-base, 200ms)
+    var(--ease-standard, cubic-bezier(0.2, 0, 0, 1)) both;
+}
+.jw-cat-scrim[data-state="closed"] {
+  animation: jw-cat-fade-out var(--motion-fast, 120ms)
+    var(--ease-exit, cubic-bezier(0.3, 0, 1, 1)) both;
+}
+/* Switching the right pane: cross-fade only. */
+.jw-cat-pane {
+  animation: jw-cat-fade-in var(--motion-fast, 120ms)
+    var(--ease-standard, cubic-bezier(0.2, 0, 0, 1)) both;
+}
+/* Products: first appearance staggers 30 ms per item (max 4 items are shown). */
+.jw-cat-stagger > * {
+  animation: jw-cat-fade-up var(--motion-base, 200ms)
+    var(--ease-standard, cubic-bezier(0.2, 0, 0, 1)) both;
+  animation-delay: calc(var(--i, 0) * var(--motion-stagger, 30ms));
+}
+.jw-cat-sheet[data-state="open"] {
+  animation: jw-cat-slide-up var(--motion-slow, 320ms)
+    var(--ease-standard, cubic-bezier(0.2, 0, 0, 1)) both;
+}
+.jw-cat-sheet[data-state="closed"] {
+  animation: jw-cat-fade-out var(--motion-base, 200ms)
+    var(--ease-exit, cubic-bezier(0.3, 0, 1, 1)) both;
+}
+
+/* Reduced motion: only short cross-fades, no rise, slide or stagger. */
+@media (prefers-reduced-motion: reduce) {
+  .jw-cat-panel[data-state="open"],
+  .jw-cat-sheet[data-state="open"],
+  .jw-cat-stagger > * {
+    animation-name: jw-cat-fade-in;
+    animation-duration: var(--motion-fast, 120ms);
+    animation-delay: 0ms;
+  }
+  .jw-cat-sheet[data-state="closed"] {
+    animation-duration: var(--motion-fast, 120ms);
+  }
+}
+
+@keyframes jw-cat-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes jw-cat-fade-out {
+  to {
+    opacity: 0;
+  }
+}
+@keyframes jw-cat-rise-in {
+  from {
+    opacity: 0;
+    translate: 0 -8px;
+  }
+}
+@keyframes jw-cat-fade-up {
+  from {
+    opacity: 0;
+    translate: 0 6px;
+  }
+}
+@keyframes jw-cat-slide-up {
+  from {
+    translate: 0 100%;
+  }
+}

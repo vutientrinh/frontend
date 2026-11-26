@@ -8,8 +8,19 @@ import {
   type VisibilityState,
 } from "@tanstack/react-table";
 import { useSearchParams } from "react-router-dom";
+import { Pager } from "./Pager";
 import { EmptyState, ErrorState } from "./shared";
-import { Button } from "./ui/button";
+import { TableSkeleton } from "./TableSkeleton";
+const NUMERIC_IDS = ["amount", "orderAmount", "unitPrice"];
+/** Numeric columns (right-aligned in header and cells): `meta: { numeric: true }` or a known id. */
+function isNumeric(column: {
+  id: string;
+  columnDef: { meta?: unknown };
+}): boolean {
+  const meta = column.columnDef.meta as { numeric?: boolean } | undefined;
+  return meta?.numeric ?? NUMERIC_IDS.includes(column.id);
+}
+
 export function DataTable<T>({
   data,
   columns,
@@ -134,32 +145,31 @@ export function DataTable<T>({
       {error ? (
         <ErrorState retry={onRetry} />
       ) : loading ? (
-        <div role="status" aria-label="Loading rows" className="space-y-2">
-          {Array.from({ length: 5 }, (_, i) => (
-            <div
-              key={i}
-              className="h-10 animate-pulse rounded bg-muted motion-reduce:animate-none"
-            />
-          ))}
-        </div>
+        <TableSkeleton columns={columns.length || 4} />
       ) : data.length === 0 ? (
         <EmptyState
           title="No results"
           description="Try another search or filter."
+          illustration="empty-queue"
         />
       ) : (
-        <div className="overflow-x-auto border-y border-border">
+        <div className="max-h-[75vh] overflow-auto border-y border-border">
           <table className="w-full text-left text-sm">
-            <thead className="bg-background text-muted-foreground">
+            <thead className="sticky top-0 z-[1] bg-background text-muted-foreground shadow-[0_1px_0_var(--border)]">
               {table.getHeaderGroups().map((g) => (
                 <tr key={g.id} className="flex flex-wrap sm:table-row">
                   {g.headers.map((h) => (
                     <th
                       key={h.id}
                       scope="col"
-                      className={`p-3 ${["amount", "orderAmount", "unitPrice"].includes(h.column.id) ? "text-right" : ""}`}
+                      className={`p-3 ${isNumeric(h.column) ? "text-right" : ""}`}
                     >
-                      <button onClick={h.column.getToggleSortingHandler()}>
+                      <button
+                        onClick={h.column.getToggleSortingHandler()}
+                        className={
+                          isNumeric(h.column) ? "w-full text-right" : ""
+                        }
+                      >
                         {flexRender(h.column.columnDef.header, h.getContext())}
                         {h.column.getIsSorted() === "asc"
                           ? " ↑"
@@ -188,12 +198,12 @@ export function DataTable<T>({
                       onRowClick(row.original);
                     }
                   }}
-                  className={`block border-t border-border hover:bg-muted sm:table-row ${getRowId && getRowId(row.original) === selectedId ? "bg-muted" : ""}`}
+                  className={`block border-t border-border hover:bg-muted/70 sm:table-row ${getRowId && getRowId(row.original) === selectedId ? "bg-muted" : ""}`}
                 >
                   {row.getVisibleCells().map((c) => (
                     <td
                       key={c.id}
-                      className={`flex justify-between gap-4 p-3 sm:table-cell ${["amount", "orderAmount", "unitPrice"].includes(c.column.id) ? "text-right tabular-nums" : ""}`}
+                      className={`flex justify-between gap-4 p-3 sm:table-cell ${isNumeric(c.column) ? "text-right tabular-nums" : ""}`}
                     >
                       <span className="font-medium sm:hidden">
                         {c.column.id}
@@ -209,25 +219,17 @@ export function DataTable<T>({
           </table>
         </div>
       )}
-      <div className="flex items-center justify-between text-sm">
-        <span>
-          {total} results · Page {page + 1}
-        </span>
-        <div className="flex gap-2">
-          <Button
-            disabled={page === 0}
-            onClick={() => update("page", String(page - 1))}
-          >
-            Previous
-          </Button>
-          <Button
-            disabled={(page + 1) * size >= total}
-            onClick={() => update("page", String(page + 1))}
-          >
-            Next
-          </Button>
-        </div>
-      </div>
+      {total > 0 && (
+        <p className="text-sm text-muted-foreground">
+          {total} {total === 1 ? "result" : "results"}
+        </p>
+      )}
+      <Pager
+        className="!mt-2"
+        page={page}
+        totalPages={Math.ceil(total / size)}
+        onPage={(n) => update("page", String(n))}
+      />
     </div>
   );
 }

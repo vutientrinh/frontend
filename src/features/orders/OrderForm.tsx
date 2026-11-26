@@ -4,6 +4,7 @@ import Big from "big.js";
 import { Link, useNavigate } from "react-router-dom";
 import { Plus, Trash2 } from "lucide-react";
 import { api } from "../../api/client";
+import { pageTitle } from "../../config/brand";
 import type { Order, ProblemDetail } from "../../api/types";
 import { customers, products } from "../transactions/lookups";
 import {
@@ -30,7 +31,7 @@ export default function OrderForm({ existing }: { existing?: Order }) {
     ),
     [error, setError] = useState("");
   useEffect(() => {
-    document.title = `${existing ? "Edit" : "Create"} order | Payment Project`;
+    document.title = pageTitle(`${existing ? "Edit" : "Create"} order`);
   }, [existing]);
   const lookup = useQuery({
     queryKey: ["order-choices"],

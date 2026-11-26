@@ -1,7 +1,9 @@
-import { PackageOpen, SearchX, ShoppingCart } from "lucide-react";
 import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
+import { Illustration } from "@/components/brand/Illustration";
+import type { IllustrationName } from "@/components/brand/illustrations";
 import { productGridClass } from "../lib";
+import { type } from "../type";
 
 const pulse = "rounded bg-muted motion-safe:animate-pulse";
 
@@ -67,22 +69,20 @@ export function ListSkeleton({
 }
 
 function StoreEmpty({
-  icon,
+  illustration,
   title,
   description,
   action,
 }: {
-  icon: ReactNode;
+  illustration: IllustrationName;
   title: string;
   description: string;
   action: ReactNode;
 }) {
   return (
     <div className="flex flex-col items-center rounded-lg border border-dashed border-border px-6 py-10 text-center">
-      <span className="grid h-12 w-12 place-items-center rounded-full bg-muted text-muted-foreground">
-        {icon}
-      </span>
-      <h2 className="mt-4 font-semibold">{title}</h2>
+      <Illustration name={illustration} size="md" />
+      <h2 className="mt-6 font-semibold">{title}</h2>
       <p className="mt-1 max-w-[50ch] text-sm text-muted-foreground">
         {description}
       </p>
@@ -97,7 +97,7 @@ const primaryLink =
 export function EmptyCart() {
   return (
     <StoreEmpty
-      icon={<ShoppingCart size={22} aria-hidden="true" />}
+      illustration="empty-cart"
       title="Your cart is empty"
       description="Items you add from any shop appear here, grouped by seller."
       action={
@@ -118,7 +118,7 @@ export function NoResults({
 }) {
   return (
     <StoreEmpty
-      icon={<SearchX size={22} aria-hidden="true" />}
+      illustration="empty-search"
       title={query ? `No products match “${query}”` : "No products match"}
       description="Try fewer filters, a wider price range or a different word."
       action={
@@ -137,7 +137,7 @@ export function NoResults({
 export function NoOrders({ tabLabel }: { tabLabel?: string }) {
   return (
     <StoreEmpty
-      icon={<PackageOpen size={22} aria-hidden="true" />}
+      illustration="empty-orders"
       title={tabLabel ? `No orders in “${tabLabel}”` : "No orders yet"}
       description="Orders you place show up here with their status and tracking."
       action={
@@ -146,5 +146,33 @@ export function NoOrders({ tabLabel }: { tabLabel?: string }) {
         </Link>
       }
     />
+  );
+}
+
+/** Not-found page for a product, shop, order or payment link (`error-not-found`). The title is the page h1. */
+export function StoreNotFound({
+  title,
+  description,
+  to = "/",
+  linkLabel = "Back to the store",
+}: {
+  title: string;
+  description?: string;
+  to?: string;
+  linkLabel?: string;
+}) {
+  return (
+    <div className="flex flex-col items-center py-10 text-center">
+      <Illustration name="error-not-found" size="lg" />
+      <h1 className={`mt-6 ${type.h1}`}>{title}</h1>
+      {description && (
+        <p className="mt-1 max-w-[50ch] text-sm text-muted-foreground">
+          {description}
+        </p>
+      )}
+      <Link to={to} className={`mt-4 ${primaryLink}`}>
+        {linkLabel}
+      </Link>
+    </div>
   );
 }

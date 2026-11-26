@@ -1,4 +1,5 @@
 import { humanLabel } from "../../lib/labels";
+import { pageTitle } from "../../config/brand";
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import type { ColumnDef } from "@tanstack/react-table";
@@ -35,7 +36,7 @@ export default function TransactionList({
     navigate = useNavigate(),
     [params, setParams] = useSearchParams();
   useEffect(() => {
-    document.title = `${title} | Payment Project`;
+    document.title = pageTitle(title);
   }, [title]);
   const page = Math.max(0, parseInt(params.get("page") ?? "0", 10) || 0),
     status = params.get("status") ?? "",
